@@ -17,7 +17,19 @@ public class Field : MonoBehaviour
     public Block blockPrefab;
 
     List<Block> blocks = new List<Block>();
+
+    int[] inputFrames = new int[6];
    
+    enum Button
+    {
+        UP,
+        DOWN,
+        LEFT,
+        RIGHT,
+        CHANGE,
+        RAISE_FIELD
+    }
+
     // Start is called before the first frame update
     void Start()
     {
@@ -60,22 +72,24 @@ public class Field : MonoBehaviour
             }
         }
 
+        UpdateAxis();
+
         var XAxis = Input.GetAxis("Horizontal");
         var YAxis = Input.GetAxis("Vertical");
 
-        if (XAxis > 0 && cursorX < Width - 2)
+        if (inputFrames[(int)Button.RIGHT] == 1 && cursorX < Width - 2)
         {
             cursorX++;
         }
-        if (XAxis < 0 && cursorX > 0)
+        if (inputFrames[(int)Button.LEFT] == 1 && cursorX > 0)
         {
             cursorX--;
         }
-        if (YAxis > 0 && cursorY < Height - 1)
+        if (inputFrames[(int)Button.DOWN] == 1 && cursorY < Height - 1)
         {
             cursorY++;
         }
-        if (YAxis < 0 && cursorY > 0)
+        if (inputFrames[(int)Button.UP] == 1 && cursorY > 0)
         {
             cursorY--;
         }
@@ -99,5 +113,45 @@ public class Field : MonoBehaviour
     {
         blocks[cursorY * Width + cursorX].isSelected = true;
         blocks[cursorY * Width + cursorX + 1].isSelected = true;
+    }
+
+
+    void UpdateAxis()
+    {
+        var XAxis = Input.GetAxis("Horizontal");
+        var YAxis = Input.GetAxis("Vertical");
+
+        if (XAxis > 0)
+        {
+            inputFrames[(int)Button.RIGHT]++;
+        }
+        else
+        {
+            inputFrames[(int)Button.RIGHT] = 0;
+        }
+        if (XAxis < 0)
+        {
+            inputFrames[(int)Button.LEFT]++;
+        }
+        else
+        {
+            inputFrames[(int)Button.LEFT] = 0;
+        }
+        if (YAxis > 0)
+        {
+            inputFrames[(int)Button.DOWN]++;
+        }
+        else
+        {
+            inputFrames[(int)Button.DOWN] = 0;
+        }
+        if (YAxis < 0)
+        {
+            inputFrames[(int)Button.UP]++;
+        }
+        else
+        {
+            inputFrames[(int)Button.UP] = 0;
+        }
     }
 }

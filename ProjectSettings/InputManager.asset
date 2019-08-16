@@ -13,9 +13,9 @@ InputManager:
     positiveButton: up
     altNegativeButton: 
     altPositiveButton: 
-    gravity: 15
+    gravity: 30
     dead: 0
-    sensitivity: 15
+    sensitivity: 30
     snap: 0
     invert: 0
     type: 0
@@ -29,9 +29,9 @@ InputManager:
     positiveButton: right
     altNegativeButton: 
     altPositiveButton: 
-    gravity: 15
+    gravity: 30
     dead: 0
-    sensitivity: 15
+    sensitivity: 30
     snap: 0
     invert: 0
     type: 0
@@ -42,7 +42,7 @@ InputManager:
     descriptiveName: 
     descriptiveNegativeName: 
     negativeButton: 
-    positiveButton: 
+    positiveButton: z
     altNegativeButton: 
     altPositiveButton: 
     gravity: 0
@@ -51,14 +51,14 @@ InputManager:
     snap: 0
     invert: 0
     type: 0
-    axis: 0
+    axis: 2
     joyNum: 0
   - serializedVersion: 3
-    m_Name: BlockUp
+    m_Name: RaiseField
     descriptiveName: 
     descriptiveNegativeName: 
     negativeButton: 
-    positiveButton: 
+    positiveButton: x
     altNegativeButton: 
     altPositiveButton: 
     gravity: 0
@@ -67,5 +67,5 @@ InputManager:
     snap: 0
     invert: 0
     type: 0
-    axis: 0
+    axis: 3
     joyNum: 0

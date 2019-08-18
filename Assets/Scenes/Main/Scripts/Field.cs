@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using static Block;
+using static BlockObject;
 
 public class Field : MonoBehaviour
 {
@@ -14,11 +14,11 @@ public class Field : MonoBehaviour
     int cursorX = 0;
     int cursorY = 0;
 
-    public Block blockPrefab;
+    public BlockObject blockPrefab;
 
     public int blockDeleteCountLimit = 60 * 5;
 
-    List<Block> blocks = new List<Block>();
+    List<BlockObject> blocks = new List<BlockObject>();
 
     int[] inputFrames = new int[6];
 
@@ -199,9 +199,9 @@ public class Field : MonoBehaviour
         }
     }
 
-    void LookupDeleteBlockGroup(Block block, int baseX, int baseY, int checkDir)
+    void LookupDeleteBlockGroup(BlockObject block, int baseX, int baseY, int checkDir)
     {
-        var tempBlocks = new List<Block>(5);
+        var tempBlocks = new List<BlockObject>(5);
         tempBlocks.Add(block);
         var nextBlock = blocks[(baseY + checkDir == 1 ? 1 : 0) * Width + baseX + (checkDir == 0 ? 1 : 0)];
         if (checkDir == 0)

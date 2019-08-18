@@ -16,10 +16,12 @@ public class Field : MonoBehaviour
 
     public Block blockPrefab;
 
+    public int blockDeleteCountLimit = 60 * 5;
+
     List<Block> blocks = new List<Block>();
 
     int[] inputFrames = new int[6];
-   
+
     enum Button
     {
         UP,
@@ -38,9 +40,10 @@ public class Field : MonoBehaviour
         cursorX = Width / 2;
         cursorY = Height / 2;
 
-        for(var i = 0; i < Width * Height; ++i)
+        for (var i = 0; i < Width * Height; ++i)
         {
             var block = Instantiate(blockPrefab);
+            block.deleteCountLimit = blockDeleteCountLimit;
             block.type = (Type)r.Next(5);
             block.transform.position = new Vector3(i % Width - Width / 2, i / Height);
             blocks.Add(block);
@@ -51,31 +54,8 @@ public class Field : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        for (var y = Height - 1; y >= 0; --y)
-        {
-            for (var x = 0; x < Width; ++x)
-            {
-                var block = blocks[y * Width + x];
-                block.isSelected = false;
-                // そのマスが空白だったら上に乗っているブロックを一つずつ下にずらす
-                if (block.type == Type.NONE)
-                {
-                    var by = y;
-                    for (var cy = y + 1; cy < Height; ++cy )
-                    {
-                        blocks[by * Width + x].type = blocks[cy * Width + x].type;
-                        by = cy;
-                    }
-
-                    blocks[by * Width + x].type = Type.NONE;
-                }
-            }
-        }
 
         UpdateAxis();
-
-        var XAxis = Input.GetAxis("Horizontal");
-        var YAxis = Input.GetAxis("Vertical");
 
         if (inputFrames[(int)Button.RIGHT] == 1 && cursorX < Width - 2)
         {
@@ -94,6 +74,10 @@ public class Field : MonoBehaviour
             cursorY--;
         }
 
+        UpdateBlockGravity();
+        UpdateCursor();
+
+
         if (Input.GetButtonDown("BlockChange"))
         {
             var t = blocks[cursorY * Width + cursorX].type;
@@ -101,16 +85,18 @@ public class Field : MonoBehaviour
             blocks[cursorY * Width + cursorX + 1].type = t;
         }
 
-        UpdateCursor();
+        UpdateDeleteBlock();
 
-        Debug.Log("cursorX:" + cursorX);
-        Debug.Log("cursorY:" + cursorY);
-        Debug.Log("XAxis:" + XAxis);
-        Debug.Log("YAxis:" + YAxis);
     }
 
     void UpdateCursor()
     {
+
+        blocks.ForEach(block =>
+        {
+            block.isSelected = false;
+        });
+
         blocks[cursorY * Width + cursorX].isSelected = true;
         blocks[cursorY * Width + cursorX + 1].isSelected = true;
     }
@@ -153,5 +139,104 @@ public class Field : MonoBehaviour
         {
             inputFrames[(int)Button.UP] = 0;
         }
+    }
+
+    void UpdateDeleteBlock()
+    {
+        for (var y = 0; y < Height; ++y)
+        {
+            for (var x = 0; x < Width; ++x)
+            {
+                var block = blocks[y * Width + x];
+
+                if (!block.isDeleting)
+                {
+                    if (x + 1 < Width)
+                    {
+                        // 横
+                        if (block.type != Type.NONE && block.type == blocks[y * Width + x + 1].type)
+                        {
+                            LookupDeleteBlockGroup(block, x, y, 0);
+                        }
+                    }
+
+                    if (y + 1 < Height)
+                    {
+                        // 縦
+                        if (block.type != Type.NONE && block.type == blocks[(y + 1) * Width + x].type)
+                        {
+                            LookupDeleteBlockGroup(block, x, y, 1);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    void UpdateBlockGravity()
+    {
+        for (var x = 0; x < Width; ++x)
+        {
+            for (var y = Height - 1; y >= 0; --y)
+            {
+
+                var block = blocks[y * Width + x];
+                // そのマスが空白だったら上に乗っているブロックを一つずつ下にずらす
+                if (block.type == Type.NONE)
+                {
+                    var by = y;
+                    for (var cy = y + 1; cy < Height; ++cy)
+                    {
+                        blocks[by * Width + x].type = blocks[cy * Width + x].type;
+                        by = cy;
+                    }
+
+                    blocks[by * Width + x].type = Type.NONE;
+                }
+            }
+        }
+    }
+
+    void LookupDeleteBlockGroup(Block block, int baseX, int baseY, int checkDir)
+    {
+        var tempBlocks = new List<Block>(5);
+        tempBlocks.Add(block);
+        var nextBlock = blocks[(baseY + checkDir == 1 ? 1 : 0) * Width + baseX + (checkDir == 0 ? 1 : 0)];
+        if (checkDir == 0)
+        {
+            for (var dx = baseX + 1; dx < Width; ++dx)
+            {
+                var checkBlock = blocks[baseY * Width + dx];
+                if (checkBlock.type != block.type)
+                {
+                    break;
+                }
+
+                tempBlocks.Add(checkBlock);
+            }
+        }
+        else
+        {
+            for (var dy = baseY + 1; dy < Height; ++dy)
+            {
+                var checkBlock = blocks[dy * Width + baseX];
+                if (checkBlock.type != block.type)
+                {
+                    break;
+                }
+
+                tempBlocks.Add(checkBlock);
+            }
+        }
+
+        if (tempBlocks.Count >= 3)
+        {
+            tempBlocks.ForEach(tempBlock =>
+            {
+                tempBlock.isDeleting = true;
+            });
+
+        }
+
     }
 }

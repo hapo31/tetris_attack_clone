@@ -21,7 +21,13 @@ public class Block : MonoBehaviour
     public Material yellowMaterial;
     public Material greenMaterial;
 
-    public bool isSelected = false; 
+    public bool isSelected = false;
+
+    public int deleteCount = 0;
+
+    public int deleteCountLimit = 0;
+
+    public bool isDeleting = false;
 
     private new Renderer renderer;
 
@@ -65,5 +71,20 @@ public class Block : MonoBehaviour
                 renderer.material.color = new Color(1, 1, 1, 1);
             }
         }
+
+
+        if (isDeleting)
+        {
+            renderer.material.color = new Color(0, 0, 1.0f);
+            ++deleteCount;
+        }
+
+        if (deleteCount > deleteCountLimit)
+        {
+            type = Type.NONE;
+            deleteCount = 0;
+            isDeleting = false;
+        }
+
     }
 }

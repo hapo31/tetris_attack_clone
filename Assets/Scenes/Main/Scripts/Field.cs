@@ -45,7 +45,7 @@ public class Field : MonoBehaviour
             var block = Instantiate(blockPrefab);
             block.deleteCountLimit = blockDeleteCountLimit;
             block.type = (Type)r.Next(5);
-            block.transform.position = new Vector3(i % Width - Width / 2, i / Height);
+            block.transform.position = new Vector3(i % Width - Width / 2, (Height - i) / Height + Height);
             blocks.Add(block);
         }
         UpdateCursor();
@@ -65,13 +65,13 @@ public class Field : MonoBehaviour
         {
             cursorX--;
         }
-        if (inputFrames[(int)Button.DOWN] == 1 && cursorY < Height - 1)
-        {
-            cursorY++;
-        }
-        if (inputFrames[(int)Button.UP] == 1 && cursorY > 0)
+        if (inputFrames[(int)Button.DOWN] == 1 && cursorY > 0)
         {
             cursorY--;
+        }
+        if (inputFrames[(int)Button.UP] == 1 && cursorY < Height - 1)
+        {
+            cursorY++;
         }
 
         UpdateBlockGravity();
@@ -80,9 +80,12 @@ public class Field : MonoBehaviour
 
         if (Input.GetButtonDown("BlockChange"))
         {
-            var t = blocks[cursorY * Width + cursorX].type;
-            blocks[cursorY * Width + cursorX].type = blocks[cursorY * Width + cursorX + 1].type;
-            blocks[cursorY * Width + cursorX + 1].type = t;
+            if (!blocks[cursorY * Width + cursorX].isDeleting && !blocks[cursorY * Width + cursorX + 1].isDeleting)
+            {
+                var t = blocks[cursorY * Width + cursorX].type;
+                blocks[cursorY * Width + cursorX].type = blocks[cursorY * Width + cursorX + 1].type;
+                blocks[cursorY * Width + cursorX + 1].type = t;
+            }
         }
 
         UpdateDeleteBlock();
@@ -179,19 +182,18 @@ public class Field : MonoBehaviour
         {
             for (var y = Height - 1; y >= 0; --y)
             {
-
                 var block = blocks[y * Width + x];
                 // そのマスが空白だったら上に乗っているブロックを一つずつ下にずらす
                 if (block.type == Type.NONE)
                 {
-                    var by = y;
-                    for (var cy = y + 1; cy < Height; ++cy)
+                    for (var dy = y; dy > 1; --dy)
                     {
-                        blocks[by * Width + x].type = blocks[cy * Width + x].type;
-                        by = cy;
+                        blocks[dy * Width + x].type = blocks[(dy - 1) * Width + x].type;
                     }
 
-                    blocks[by * Width + x].type = Type.NONE;
+                    blocks[0 * Width + x].type = Type.NONE;
+                    // 1フレームに1マスずつ落とす
+                    break;
                 }
             }
         }

@@ -1,20 +1,11 @@
-﻿using System.Collections;
+﻿using Game.Core;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class BlockObject : MonoBehaviour
 {
-
-     public enum Type
-    {
-        NONE,
-        RED,
-        GREEN,
-        BLUE,
-        YELLOW
-    }
-
-    public Type type;
+    public BlockType type;
 
     public Material blueMaterial;
     public Material redMaterial;
@@ -22,10 +13,6 @@ public class BlockObject : MonoBehaviour
     public Material greenMaterial;
 
     public bool isSelected = false;
-
-    public int deleteCount = 0;
-
-    public int deleteCountLimit = 0;
 
     public bool isDeleting = false;
 
@@ -43,24 +30,24 @@ public class BlockObject : MonoBehaviour
     {
         switch (type)
         {
-            case Type.NONE:
+            case BlockType.NONE:
                 renderer.material.color = new Color(0, 0, 0, 0.0f);
                 break;
-            case Type.RED:
+            case BlockType.RED:
                 renderer.material = this.redMaterial;
                 break;
-            case Type.BLUE:
+            case BlockType.BLUE:
                 renderer.material = this.blueMaterial;
                 break;
-            case Type.GREEN:
+            case BlockType.GREEN:
                 renderer.material = this.greenMaterial;
                 break;
-            case Type.YELLOW:
+            case BlockType.YELLOW:
                 renderer.material = this.yellowMaterial;
                 break;
         }
 
-        if (type != Type.NONE)
+        if (type != BlockType.NONE)
         {
             if (isSelected)
             {
@@ -72,19 +59,9 @@ public class BlockObject : MonoBehaviour
             }
         }
 
-
         if (isDeleting)
         {
-            renderer.material.color = new Color(0, 0, 1.0f);
-            ++deleteCount;
+            renderer.material.color = new Color(0, 0, 0.5f, 1);
         }
-
-        if (deleteCount > deleteCountLimit)
-        {
-            type = Type.NONE;
-            deleteCount = 0;
-            isDeleting = false;
-        }
-
     }
 }

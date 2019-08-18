@@ -102,7 +102,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1965064147855854039}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 28e745a6f58bc9d47894ac2d9bb90596, type: 3}
+  m_Script: {fileID: 11500000, guid: b04c47cb1cd9a8e449e55454a0569f7d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   type: 0
@@ -111,3 +111,4 @@ MonoBehaviour:
   yellowMaterial: {fileID: 2100000, guid: 0d58b0f2ed9fedc419c7f45c601ef9ec, type: 2}
   greenMaterial: {fileID: 2100000, guid: 79de18d33276a0c439a93ec7cf9ee761, type: 2}
   isSelected: 0
+  isDeleting: 0

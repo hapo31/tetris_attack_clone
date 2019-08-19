@@ -53,7 +53,7 @@ namespace Game.Behavior
 
             var rand = new System.Random();
 
-            for (var y = Height - 4; y < Height; ++y)
+            for (var y = Height - 10; y < Height; ++y)
             {
                 for (var x = 0; x < Width; ++x)
                 {
@@ -80,7 +80,7 @@ namespace Game.Behavior
                         // そのマスが空白だったら上に乗っているブロックを一つずつ下にずらす
                         if (block.type == BlockType.NONE)
                         {
-                            for (var dy = y; dy > 1; --dy)
+                            for (var dy = y; dy > 0; --dy)
                             {
                                 // 上に乗っているブロックが NONE だったらスキップ
                                 if (blocks[(dy - 1) * Width + x].type == BlockType.NONE)
@@ -229,7 +229,6 @@ namespace Game.Behavior
         {
             var from = blocks[fromY * Width + fromX];
             var to = blocks[toY * Width + toX];
-            Debug.Log("MoveBlock: from " + from.Id + " to " + to.Id);
 
             to.type = from.type;
             to.Id = from.Id;
@@ -313,7 +312,6 @@ namespace Game.Behavior
         Vector3 PositionToVector3(int x, int y)
         {
             var v = new Vector3(x, Height - 1 - y);
-            Debug.Log("x:" + x + " y:" + y +" vec:" + v);
             return v;
         }
     }

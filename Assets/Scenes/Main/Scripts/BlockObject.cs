@@ -1,4 +1,5 @@
 ﻿using Game.Core;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -19,10 +20,15 @@ public class BlockObject : MonoBehaviour
     private new Renderer renderer;
 
     private Queue<Vector3> moveQueue = new Queue<Vector3>();
+    
+    // 最後に呼ばれた MoveTo() が target とする座標
+    private Vector3? nextPosition = null;
 
     public void MoveTo(Vector3 target, int frame)
     {
-        var current = gameObject.transform.position;
+        var current = nextPosition == null ? gameObject.transform.position : nextPosition;
+
+        nextPosition = target;
 
         if (frame == 0)
         {
@@ -32,7 +38,7 @@ public class BlockObject : MonoBehaviour
 
         for (var i = 0; i < frame; ++i)
         {
-            moveQueue.Enqueue((target - current) / frame);
+            moveQueue.Enqueue((target - (Vector3)current) / frame);
         }
     }
 
@@ -69,6 +75,10 @@ public class BlockObject : MonoBehaviour
         {
             var delta = moveQueue.Dequeue();
             gameObject.transform.Translate(delta);
+        }
+        else
+        {
+            nextPosition = null;
         }
 
         if (type != BlockType.NONE)

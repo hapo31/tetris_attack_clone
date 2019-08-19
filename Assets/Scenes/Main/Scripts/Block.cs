@@ -20,7 +20,8 @@ namespace Game.Core
         public BlockType type = BlockType.NONE;
         public int deleteCount = 0;
         public int deleteCountLimit = 0;
-        public bool isFloating = false;
+        public int fallWaitFrame = 0;
+
         public bool isDeleting = false;
 
         public Block()

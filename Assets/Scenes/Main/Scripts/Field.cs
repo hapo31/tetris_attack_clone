@@ -18,6 +18,8 @@ public class Field : MonoBehaviour
 
     public BlockObject blockPrefab;
 
+    GameObject cursor;
+
     FieldBehavior fieldBehavior;
 
     int[] inputFrames = new int[6];
@@ -40,6 +42,8 @@ public class Field : MonoBehaviour
         cursorX = Width / 2;
         cursorY = Height  - 2;
 
+        cursor = GameObject.FindGameObjectWithTag("Cursor");
+
         fieldBehavior.onInstantiateBlock += (id) =>
         {
             var instance = Instantiate(blockPrefab);
@@ -53,8 +57,7 @@ public class Field : MonoBehaviour
         };
 
         fieldBehavior.Init();
-
-        fieldBehavior.UpdateCursor(cursorX, cursorY);
+        cursor.transform.position = new Vector3(cursorX, Height - 1 - cursorY);
     }
 
     // Update is called once per frame
@@ -79,8 +82,7 @@ public class Field : MonoBehaviour
         {
             cursorY++;
         }
-
-        fieldBehavior.UpdateCursor(cursorX, cursorY);
+        cursor.transform.position = new Vector3(cursorX, Height - 1 - cursorY);
         fieldBehavior.Update();
 
         if (Input.GetButtonDown("BlockChange"))

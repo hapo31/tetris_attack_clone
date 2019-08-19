@@ -13,8 +13,6 @@ public class BlockObject : MonoBehaviour
     public Material yellowMaterial;
     public Material greenMaterial;
 
-    public bool isSelected = false;
-
     public bool isDeleting = false;
 
     private new Renderer renderer;
@@ -79,18 +77,6 @@ public class BlockObject : MonoBehaviour
         else
         {
             nextPosition = null;
-        }
-
-        if (type != BlockType.NONE)
-        {
-            if (isSelected)
-            {
-                renderer.material.color = new Color(1.0f, 0.5f, 0.5f, 1);
-            }
-            else
-            {
-                renderer.material.color = new Color(1, 1, 1, 1);
-            }
         }
 
         if (isDeleting)

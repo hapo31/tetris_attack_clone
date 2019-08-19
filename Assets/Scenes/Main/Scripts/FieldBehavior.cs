@@ -25,12 +25,15 @@ namespace Game.Behavior
 
         public int blockDeleteCountLimit = 60 * 5;
 
+        // 何フレーム間隔でブロックを落とすか
+        public int gravityAcceleration = 5;
+
         int idCount = 0;
 
         public FieldBehavior(int width, int height)
         {
             blocks = new Block[width * height];
-            for(var i = 0; i < width * height; ++i)
+            for (var i = 0; i < width * height; ++i)
             {
                 blocks[i] = new Block();
                 blocks[i].deleteCountLimit = blockDeleteCountLimit;
@@ -59,7 +62,7 @@ namespace Game.Behavior
                 {
                     var blockType = (BlockType)(rand.Next(4) + 1);
                     CreateBlock(x, y, blockType);
-                    
+
                 }
             }
         }
@@ -73,7 +76,6 @@ namespace Game.Behavior
                 for (var y = Height - 1; y >= 0; --y)
                 {
                     var block = blocks[y * Width + x];
-                    block.isFloating = false;
                     // 消えているブロックは落下しない
                     if (!block.isDeleting)
                     {
@@ -82,12 +84,20 @@ namespace Game.Behavior
                         {
                             for (var dy = y; dy > 0; --dy)
                             {
+                                var dBlock = blocks[dy * Width + x];
                                 // 上に乗っているブロックが NONE だったらスキップ
                                 if (blocks[(dy - 1) * Width + x].type == BlockType.NONE)
                                 {
                                     continue;
                                 }
-                                blocks[dy * Width + x].isFloating = true;
+
+                                if (dBlock.fallWaitFrame > 0)
+                                {
+                                    dBlock.fallWaitFrame--;
+                                    continue;
+                                }
+
+                                dBlock.fallWaitFrame = gravityAcceleration;
                                 MoveBlock(x, dy - 1, x, dy);
                             }
                             // 1フレームに1マスずつ落とす
@@ -119,25 +129,9 @@ namespace Game.Behavior
                 {
                     var block = blocks[y * Width + x];
 
-                    if (!block.isDeleting && !block.isFloating)
+                    if (!block.isDeleting)
                     {
-                        if (x + 1 < Width)
-                        {
-                            // 横
-                            if (block.type != BlockType.NONE && block.type == blocks[y * Width + x + 1].type)
-                            {
-                                LookupDeleteBlockGroup(block, x, y, 0);
-                            }
-                        }
-
-                        if (y + 1 < Height)
-                        {
-                            // 縦
-                            if (block.type != BlockType.NONE && block.type == blocks[(y + 1) * Width + x].type)
-                            {
-                                LookupDeleteBlockGroup(block, x, y, 1);
-                            }
-                        }
+                        LookupDeleteBlockGroup(x, y);
                     }
                 }
             }
@@ -153,13 +147,13 @@ namespace Game.Behavior
                 if (blockObjects.ContainsKey(a.Id))
                 {
 
-                    blockObjects[a.Id].MoveTo(PositionToVector3(x + 1, y), 3);
+                    blockObjects[a.Id].MoveTo(PositionToVector3(x + 1, y), 5);
                 }
 
                 if (blockObjects.ContainsKey(b.Id))
                 {
 
-                    blockObjects[b.Id].MoveTo(PositionToVector3(x, y), 3);
+                    blockObjects[b.Id].MoveTo(PositionToVector3(x, y), 5);
                 }
 
                 var t = a.type;
@@ -170,32 +164,6 @@ namespace Game.Behavior
                 b.type = t;
                 b.Id = id;
 
-            }
-        }
-
-        /// <summary>
-        /// 仮のやつなのでそのうち消すがとりあえずカーソルが実装できるまでやっておく
-        /// </summary>
-        /// <param name="x"></param>
-        /// <param name="y"></param>
-        public void UpdateCursor(int x, int y)
-        {
-
-            foreach(var blockObj in blockObjects.Values)
-            {
-                blockObj.isSelected = false;
-            }
-
-            var block1 = blocks[y * Width + x];
-            if (blockObjects.ContainsKey(block1.Id))
-            {
-                blockObjects[block1.Id].isSelected = true;
-            }
-
-            var block2 = blocks[y * Width + x + 1];
-            if (blockObjects.ContainsKey(block2.Id))
-            {
-                blockObjects[block2.Id].isSelected = true;
             }
         }
 
@@ -236,7 +204,7 @@ namespace Game.Behavior
             from.type = BlockType.NONE;
             from.Id = -1;
 
-            blockObjects[to.Id].MoveTo(PositionToVector3(toX, toY), 2);
+            blockObjects[to.Id].MoveTo(PositionToVector3(toX, toY), gravityAcceleration);
         }
 
         /// <summary>
@@ -268,36 +236,40 @@ namespace Game.Behavior
             blockObjects[blocks[y * Width + x].Id].isDeleting = true;
         }
 
-        void LookupDeleteBlockGroup(Block block, int baseX, int baseY, int checkDir)
+        void LookupDeleteBlockGroup(int baseX, int baseY)
         {
+            var block = blocks[baseY * Width + baseX];
             var tempBlocks = new List<(int x, int y)>(5);
             tempBlocks.Add((baseX, baseY));
-            if (checkDir == 0)
-            {
-                for (var dx = baseX + 1; dx < Width; ++dx)
-                {
-                    var checkBlock = blocks[baseY * Width + dx];
-                    if (checkBlock.type != block.type)
-                    {
-                        break;
-                    }
 
-                    tempBlocks.Add((dx, baseY));
-                }
-            }
-            else
+            // ブロックの1個下が空白だったら判定しない
+            if (baseY + 1 < Height && ( block.type == BlockType.NONE || blocks[(baseY + 1) * Width + baseX].type == BlockType.NONE))
             {
-                for (var dy = baseY + 1; dy < Height; ++dy)
-                {
-                    var checkBlock = blocks[dy * Width + baseX];
-                    if (checkBlock.type != block.type)
-                    {
-                        break;
-                    }
-
-                    tempBlocks.Add((baseX, dy));
-                }
+                return;
             }
+
+            for (var dx = baseX + 1; dx < Width; ++dx)
+            {
+                var checkBlock = blocks[baseY * Width + dx];
+                if (checkBlock.type != block.type)
+                {
+                    break;
+                }
+
+                tempBlocks.Add((dx, baseY));
+            }
+
+            for (var dy = baseY + 1; dy < Height; ++dy)
+            {
+                var checkBlock = blocks[dy * Width + baseX];
+                if (checkBlock.type != block.type)
+                {
+                    break;
+                }
+
+                tempBlocks.Add((baseX, dy));
+            }
+
 
             if (tempBlocks.Count >= 3)
             {

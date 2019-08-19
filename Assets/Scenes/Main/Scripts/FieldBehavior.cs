@@ -73,6 +73,7 @@ namespace Game.Behavior
                 for (var y = Height - 1; y >= 0; --y)
                 {
                     var block = blocks[y * Width + x];
+                    block.isFloating = false;
                     // 消えているブロックは落下しない
                     if (!block.isDeleting)
                     {
@@ -86,6 +87,7 @@ namespace Game.Behavior
                                 {
                                     continue;
                                 }
+                                blocks[dy * Width + x].isFloating = true;
                                 MoveBlock(x, dy - 1, x, dy);
                             }
                             // 1フレームに1マスずつ落とす
@@ -110,8 +112,6 @@ namespace Game.Behavior
                 }
             }
 
-            // TODO: このままだとブロック落下中に揃っても消えてしまうので isDropping 的なフラグが要る
-
             // ブロックの消去チェック
             for (var y = 0; y < Height; ++y)
             {
@@ -119,7 +119,7 @@ namespace Game.Behavior
                 {
                     var block = blocks[y * Width + x];
 
-                    if (!block.isDeleting)
+                    if (!block.isDeleting && !block.isFloating)
                     {
                         if (x + 1 < Width)
                         {

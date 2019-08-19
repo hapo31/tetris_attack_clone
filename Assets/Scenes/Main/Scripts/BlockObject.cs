@@ -18,6 +18,24 @@ public class BlockObject : MonoBehaviour
 
     private new Renderer renderer;
 
+    private Queue<Vector3> moveQueue = new Queue<Vector3>();
+
+    public void MoveTo(Vector3 target, int frame)
+    {
+        var current = gameObject.transform.position;
+
+        if (frame == 0)
+        {
+            gameObject.transform.position = target;
+            return;
+        }
+
+        for (var i = 0; i < frame; ++i)
+        {
+            moveQueue.Enqueue((target - current) / frame);
+        }
+    }
+
     // Start is called before the first frame update
     void Start()
     {
@@ -45,6 +63,12 @@ public class BlockObject : MonoBehaviour
             case BlockType.YELLOW:
                 renderer.material = this.yellowMaterial;
                 break;
+        }
+
+        if (moveQueue.Count > 0)
+        {
+            var delta = moveQueue.Dequeue();
+            gameObject.transform.Translate(delta);
         }
 
         if (type != BlockType.NONE)

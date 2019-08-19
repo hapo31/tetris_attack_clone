@@ -6,8 +6,6 @@ using UnityEngine;
 using Game.Core;
 using Game.Behavior;
 
-using static BlockObject;
-
 public class Field : MonoBehaviour
 {
 
@@ -40,12 +38,18 @@ public class Field : MonoBehaviour
         fieldBehavior = new FieldBehavior(Width, Height);
 
         cursorX = Width / 2;
-        cursorY = Height / 2;
+        cursorY = Height  - 2;
 
-        fieldBehavior.onInstantiateBlock += () =>
+        fieldBehavior.onInstantiateBlock += (id) =>
         {
-            Debug.Log(blockPrefab);
-            return Instantiate(blockPrefab);
+            var instance = Instantiate(blockPrefab);
+            instance.name = "Block" + id;
+            return instance;
+        };
+
+        fieldBehavior.onDeleteBlock += blockObject =>
+        {
+            Destroy(blockObject.gameObject);
         };
 
         fieldBehavior.Init();

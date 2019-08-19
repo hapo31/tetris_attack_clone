@@ -16,24 +16,15 @@ namespace Game.Core
     }
     class Block
     {
+        public int Id;
         public BlockType type = BlockType.NONE;
         public int deleteCount = 0;
         public int deleteCountLimit = 0;
         public bool isDeleting = false;
 
-        void Update()
+        public Block()
         {
-            if (isDeleting)
-            {
-                ++deleteCount;
-            }
-
-            if (deleteCount > deleteCountLimit)
-            {
-                type = BlockType.NONE;
-                deleteCount = 0;
-                isDeleting = false;
-            }
+            Id = -1;
         }
     }
 }

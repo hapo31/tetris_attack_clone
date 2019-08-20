@@ -75,7 +75,7 @@ namespace Game.Behavior
             {
                 for (var y = Height - 1; y >= 0; --y)
                 {
-                    var block = blocks[y * Width + x];
+                    var block = GetBlock(x, y);
                     // 消えているブロックは落下しない
                     if (!block.isDeleting)
                     {
@@ -84,9 +84,9 @@ namespace Game.Behavior
                         {
                             for (var dy = y; dy > 0; --dy)
                             {
-                                var dBlock = blocks[dy * Width + x];
+                                var dBlock = GetBlock(x, dy);
                                 // 上に乗っているブロックが NONE だったらスキップ
-                                if (blocks[(dy - 1) * Width + x].type == BlockType.NONE)
+                                if (GetBlock(x, dy - 1)?.type == BlockType.NONE)
                                 {
                                     continue;
                                 }
@@ -127,7 +127,7 @@ namespace Game.Behavior
             {
                 for (var x = 0; x < Width; ++x)
                 {
-                    var block = blocks[y * Width + x];
+                    var block = GetBlock(x, y);
 
                     if (!block.isDeleting)
                     {
@@ -140,8 +140,8 @@ namespace Game.Behavior
 
         public void ChangeBlock(int x, int y)
         {
-            var a = blocks[y * Width + x];
-            var b = blocks[y * Width + x + 1];
+            var a = GetBlock(x ,y);
+            var b = GetBlock(x + 1, y);
             if (!a.isDeleting && !b.isDeleting)
             {
                 if (blockObjects.ContainsKey(a.Id))
@@ -174,7 +174,7 @@ namespace Game.Behavior
         /// <param name="y">Y座標</param>
         void CreateBlock(int x, int y, BlockType blockType)
         {
-            var block = blocks[y * Width + x];
+            var block = GetBlock(x, y);
             block.type = blockType;
             block.Id = idCount;
             ++idCount;
@@ -195,8 +195,8 @@ namespace Game.Behavior
         /// <param name="toY"></param>
         void MoveBlock(int fromX, int fromY, int toX, int toY)
         {
-            var from = blocks[fromY * Width + fromX];
-            var to = blocks[toY * Width + toX];
+            var from = GetBlock(fromX, fromY);
+            var to = GetBlock(toX, toY);
 
             to.type = from.type;
             to.Id = from.Id;
@@ -214,7 +214,7 @@ namespace Game.Behavior
         /// <param name="y">Y座標</param>
         void DeleteBlock(int x, int y)
         {
-            var block = blocks[y * Width + x];
+            var block = GetBlock(x, y);
             if (block.Id == -1)
             {
                 return;
@@ -232,25 +232,27 @@ namespace Game.Behavior
 
         void SetDeleteFlag(int x, int y)
         {
-            blocks[y * Width + x].isDeleting = true;
-            blockObjects[blocks[y * Width + x].Id].isDeleting = true;
+            var block = GetBlock(x, y);
+            block.isDeleting = true;
+            blockObjects[block.Id].isDeleting = true;
         }
 
         void LookupDeleteBlockGroup(int baseX, int baseY)
         {
-            var block = blocks[baseY * Width + baseX];
+            var block = GetBlock(baseX, baseY);
             var tempBlocks = new List<(int x, int y)>(5);
             tempBlocks.Add((baseX, baseY));
 
             // ブロックの1個下が空白だったら判定しない
-            if (baseY + 1 < Height && ( block.type == BlockType.NONE || blocks[(baseY + 1) * Width + baseX].type == BlockType.NONE))
+            if (baseY + 1 < Height && ( block.type == BlockType.NONE || GetBlock(baseX, baseY + 1).type == BlockType.NONE))
             {
                 return;
             }
 
             for (var dx = baseX + 1; dx < Width; ++dx)
             {
-                var checkBlock = blocks[baseY * Width + dx];
+                var checkBlock = GetBlock(dx, baseY);
+
                 if (checkBlock.type != block.type)
                 {
                     break;
@@ -261,7 +263,7 @@ namespace Game.Behavior
 
             for (var dy = baseY + 1; dy < Height; ++dy)
             {
-                var checkBlock = blocks[dy * Width + baseX];
+                var checkBlock = GetBlock(baseX, dy);
                 if (checkBlock.type != block.type)
                 {
                     break;
@@ -285,6 +287,16 @@ namespace Game.Behavior
         {
             var v = new Vector3(x, Height - 1 - y);
             return v;
+        }
+
+
+        Block GetBlock(int x, int y)
+        {
+            if (x >= Width || y >= Height)
+            {
+                return null;
+            }
+            return blocks[y * Width + x];
         }
     }
 }

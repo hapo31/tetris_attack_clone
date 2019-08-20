@@ -26,9 +26,6 @@ namespace Game.Behavior
         // ブロックが何フレームで消えるか
         public int blockDeleteCountLimit = 60 * 5;
 
-        // ブロックを浮かせたときにその場に留まるフレーム数
-        public int blockFloatingCount = 10;
-
         // 何フレーム間隔でブロックを落とすか
         public int gravityAcceleration = 5;
 
@@ -88,13 +85,14 @@ namespace Game.Behavior
                         for (var dy = y; dy >= 0; --dy)
                         {
                             var dBlock = GetBlock(x, dy);
+                            var underBlock2 = GetBlock(x, dy + 1);
 
                             if (dBlock.type == BlockType.NONE)
                             {
                                 continue;
                             }
 
-                            if (dBlock.isDeleting)
+                            if (dBlock.isDeleting || underBlock2.isDeleting)
                             {
                                 continue;
                             }
@@ -140,7 +138,7 @@ namespace Game.Behavior
                         continue;
                     }
 
-                    if (!block.isDeleting && block.type != BlockType.NONE)
+                    if (block.deleteCount == 0 && block.type != BlockType.NONE)
                     {
                         LookupDeleteBlockGroup(x, y);
                     }
@@ -211,9 +209,6 @@ namespace Game.Behavior
 
                 b.type = t;
                 b.Id = id;
-
-                a.floatingCount = blockFloatingCount;
-                b.floatingCount = blockFloatingCount;
             }
         }
 
@@ -303,8 +298,8 @@ namespace Game.Behavior
         void LookupDeleteBlockGroup(int baseX, int baseY)
         {
             var block = GetBlock(baseX, baseY);
-            var tempBlocks = new List<(int x, int y)>(5);
-            tempBlocks.Add((baseX, baseY));
+            var horizontalDeletingBlocks = new List<(int x, int y)>(5);
+            horizontalDeletingBlocks.Add((baseX, baseY));
 
             // 横方向
             for (var dx = baseX + 1; dx < Width; ++dx)
@@ -319,24 +314,16 @@ namespace Game.Behavior
                 }
 
                 // 消去中か空白ブロックか違うブロックだったら判定終わり
-                if (checkBlock.isDeleting || checkBlock.type == BlockType.NONE || checkBlock.type != block.type)
+                if (checkBlock.deleteCount > 0 || checkBlock.type == BlockType.NONE || checkBlock.type != block.type)
                 {
                     break;
                 }
 
-                tempBlocks.Add((dx, baseY));
+                horizontalDeletingBlocks.Add((dx, baseY));
             }
 
-            if (tempBlocks.Count >= 3)
-            {
-                tempBlocks.ForEach(pos =>
-                {
-                    SetDeleteFlag(pos.x, pos.y);
-                });
-            }
-
-            tempBlocks = new List<(int x, int y)>(5);
-            tempBlocks.Add((baseX, baseY));
+            var verticalDeletingBlocks = new List<(int x, int y)>(5);
+            verticalDeletingBlocks.Add((baseX, baseY));
 
             // 縦方向
             for (var dy = baseY + 1; dy < Height; ++dy)
@@ -351,18 +338,26 @@ namespace Game.Behavior
                 }
 
                 // 空白ブロックか違うブロックだったら判定終わり
-                if (checkBlock.isDeleting || checkBlock.type == BlockType.NONE || checkBlock.type != block.type)
+                if (checkBlock.deleteCount > 0 || checkBlock.type == BlockType.NONE || checkBlock.type != block.type)
                 {
                     break;
                 }
 
-                tempBlocks.Add((baseX, dy));
+                verticalDeletingBlocks.Add((baseX, dy));
             }
 
 
-            if (tempBlocks.Count >= 3)
+            if (horizontalDeletingBlocks.Count >= 3)
             {
-                tempBlocks.ForEach(pos =>
+                horizontalDeletingBlocks.ForEach(pos =>
+                {
+                    SetDeleteFlag(pos.x, pos.y);
+                });
+            }
+
+            if (verticalDeletingBlocks.Count >= 3)
+            {
+                verticalDeletingBlocks.ForEach(pos =>
                 {
                     SetDeleteFlag(pos.x, pos.y);
                 });

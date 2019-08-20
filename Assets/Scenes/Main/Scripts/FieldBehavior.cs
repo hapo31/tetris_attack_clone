@@ -23,7 +23,11 @@ namespace Game.Behavior
         int Width;
         int Height;
 
+        // ブロックが何フレームで消えるか
         public int blockDeleteCountLimit = 60 * 5;
+
+        // ブロックを浮かせたときにその場に留まる時間
+        public int blockFloatingCount = 10;
 
         // 何フレーム間隔でブロックを落とすか
         public int gravityAcceleration = 5;
@@ -76,33 +80,30 @@ namespace Game.Behavior
                 for (var y = Height - 1; y >= 0; --y)
                 {
                     var block = GetBlock(x, y);
-                    // 消えているブロックは落下しない
-                    if (!block.isDeleting)
+                    var underBlock = GetBlock(x, y + 1);
+
+                    // 消えているブロックは落下しない && 下のブロックが空白なら落下する
+                    if (!block.isDeleting && underBlock != null && underBlock.type == BlockType.NONE)
                     {
-                        // そのマスが空白だったら上に乗っているブロックを一つずつ下にずらす
-                        if (block.type == BlockType.NONE)
+                        for (var dy = y; dy >= 0; --dy)
                         {
-                            for (var dy = y; dy > 0; --dy)
+                            var dBlock = GetBlock(x, dy);
+
+                            if (dBlock.type == BlockType.NONE)
                             {
-                                var dBlock = GetBlock(x, dy);
-                                // 上に乗っているブロックが NONE だったらスキップ
-                                if (GetBlock(x, dy - 1)?.type == BlockType.NONE)
-                                {
-                                    continue;
-                                }
-
-                                if (dBlock.fallWaitFrame > 0)
-                                {
-                                    dBlock.fallWaitFrame--;
-                                    continue;
-                                }
-
-                                dBlock.fallWaitFrame = gravityAcceleration;
-                                MoveBlock(x, dy - 1, x, dy);
+                                continue;
                             }
-                            // 1フレームに1マスずつ落とす
-                            break;
+
+                            if (dBlock.fallWaitFrame > 0)
+                            {
+                                dBlock.fallWaitFrame--;
+                                continue;
+                            }
+
+                            dBlock.fallWaitFrame = gravityAcceleration;
+                            MoveBlock(x, dy + 1, x, dy);
                         }
+                        break;
                     }
                 }
             }
@@ -128,13 +129,55 @@ namespace Game.Behavior
                 for (var x = 0; x < Width; ++x)
                 {
                     var block = GetBlock(x, y);
+                    var underBlock = GetBlock(x, y + 1);
+                    if (underBlock != null && underBlock.type == BlockType.NONE)
+                    {
+                        continue;
+                    }
 
-                    if (!block.isDeleting)
+                    if (!block.isDeleting && block.type != BlockType.NONE)
                     {
                         LookupDeleteBlockGroup(x, y);
                     }
                 }
             }
+            DebugProc();
+        }
+
+        public void DebugProc()
+        {
+            var s = "";
+            for (var y = 0; y < Height; ++y)
+            {
+                for (var x = 0; x < Width; ++x)
+                {
+                    var b = GetBlock(x, y);
+
+                    switch (b.type)
+                    {
+                        case BlockType.NONE:
+                            s += "-";
+                            break;
+                        case BlockType.RED:
+                            s += "a";
+                            break;
+                        case BlockType.GREEN:
+                            s += "b";
+                            break;
+                        case BlockType.BLUE:
+                            s += "c";
+                            break;
+                        case BlockType.YELLOW:
+                            s += "d";
+                            break;
+                        default:
+                            break;
+                    }
+                }
+                s += "\n";
+            }
+
+            Debug.Log(s);
         }
 
 
@@ -163,7 +206,6 @@ namespace Game.Behavior
 
                 b.type = t;
                 b.Id = id;
-
             }
         }
 
@@ -189,20 +231,33 @@ namespace Game.Behavior
         /// <summary>
         /// fromX, fromY の座標にあるブロックを toX, toY に移動する
         /// </summary>
-        /// <param name="fromX"></param>
-        /// <param name="fromY"></param>
         /// <param name="toX"></param>
         /// <param name="toY"></param>
-        void MoveBlock(int fromX, int fromY, int toX, int toY)
+        /// <param name="fromX"></param>
+        /// <param name="fromY"></param>
+        void MoveBlock(int toX, int toY, int fromX, int fromY)
         {
             var from = GetBlock(fromX, fromY);
             var to = GetBlock(toX, toY);
+
+            if (to.type != BlockType.NONE)
+            {
+                throw new InvalidOperationException(string.Format("to BlockType is not NONE.(toX:{0} toY:{1} fromX:{2} fromY:{3}", toX, toY, fromX, fromY));
+            }
+
+
+            if (from.type == BlockType.NONE)
+            {
+                throw new InvalidOperationException(string.Format("from BlockType is NONE.(toX:{0} toY:{1} fromX:{2} fromY:{3}", toX, toY, fromX, fromY));
+            }
 
             to.type = from.type;
             to.Id = from.Id;
 
             from.type = BlockType.NONE;
             from.Id = -1;
+
+
 
             blockObjects[to.Id].MoveTo(PositionToVector3(toX, toY), gravityAcceleration);
         }
@@ -243,17 +298,20 @@ namespace Game.Behavior
             var tempBlocks = new List<(int x, int y)>(5);
             tempBlocks.Add((baseX, baseY));
 
-            // ブロックの1個下が空白だったら判定しない
-            if (baseY + 1 < Height && ( block.type == BlockType.NONE || GetBlock(baseX, baseY + 1).type == BlockType.NONE))
-            {
-                return;
-            }
-
+            // 横方向
             for (var dx = baseX + 1; dx < Width; ++dx)
             {
                 var checkBlock = GetBlock(dx, baseY);
+                var underBlock = GetBlock(dx, baseY + 1);
 
-                if (checkBlock.type != block.type)
+                // 1マス下が空白なら判定を中断
+                if (underBlock != null && underBlock.type == BlockType.NONE)
+                {
+                    break;
+                }
+
+                // 消去中か空白ブロックか違うブロックだったら判定終わり
+                if (checkBlock.isDeleting || checkBlock.type == BlockType.NONE || checkBlock.type != block.type)
                 {
                     break;
                 }
@@ -261,10 +319,31 @@ namespace Game.Behavior
                 tempBlocks.Add((dx, baseY));
             }
 
+            if (tempBlocks.Count >= 3)
+            {
+                tempBlocks.ForEach(pos =>
+                {
+                    SetDeleteFlag(pos.x, pos.y);
+                });
+            }
+
+            tempBlocks = new List<(int x, int y)>(5);
+            tempBlocks.Add((baseX, baseY));
+
+            // 縦方向
             for (var dy = baseY + 1; dy < Height; ++dy)
             {
                 var checkBlock = GetBlock(baseX, dy);
-                if (checkBlock.type != block.type)
+                var underBlock = GetBlock(baseX, dy + 1);
+
+                // 1マス下が空白なら判定を中断
+                if (underBlock != null && underBlock.type == BlockType.NONE)
+                {
+                    break;
+                }
+
+                // 空白ブロックか違うブロックだったら判定終わり
+                if (checkBlock.isDeleting || checkBlock.type == BlockType.NONE || checkBlock.type != block.type)
                 {
                     break;
                 }

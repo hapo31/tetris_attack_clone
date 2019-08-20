@@ -26,7 +26,7 @@ namespace Game.Behavior
         // ブロックが何フレームで消えるか
         public int blockDeleteCountLimit = 60 * 5;
 
-        // ブロックを浮かせたときにその場に留まる時間
+        // ブロックを浮かせたときにその場に留まるフレーム数
         public int blockFloatingCount = 10;
 
         // 何フレーム間隔でブロックを落とすか
@@ -90,6 +90,11 @@ namespace Game.Behavior
                             var dBlock = GetBlock(x, dy);
 
                             if (dBlock.type == BlockType.NONE)
+                            {
+                                continue;
+                            }
+
+                            if (dBlock.isDeleting)
                             {
                                 continue;
                             }
@@ -206,6 +211,9 @@ namespace Game.Behavior
 
                 b.type = t;
                 b.Id = id;
+
+                a.floatingCount = blockFloatingCount;
+                b.floatingCount = blockFloatingCount;
             }
         }
 

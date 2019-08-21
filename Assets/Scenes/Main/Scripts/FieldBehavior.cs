@@ -92,7 +92,7 @@ namespace Game.Behavior
                                 continue;
                             }
 
-                            if (dBlock.isDeleting || underBlock2.isDeleting)
+                            if (dBlock.isDeleting || underBlock2.isDeleting || underBlock2.type != BlockType.NONE)
                             {
                                 continue;
                             }
@@ -102,9 +102,12 @@ namespace Game.Behavior
                                 dBlock.fallWaitFrame--;
                                 continue;
                             }
+                            else
+                            {
+                                MoveBlock(x, dy + 1, x, dy);
+                            }
 
                             dBlock.fallWaitFrame = gravityAcceleration;
-                            MoveBlock(x, dy + 1, x, dy);
                         }
                         break;
                     }
@@ -245,13 +248,14 @@ namespace Game.Behavior
 
             if (to.type != BlockType.NONE)
             {
-                throw new InvalidOperationException(string.Format("to BlockType is not NONE.(toX:{0} toY:{1} fromX:{2} fromY:{3}", toX, toY, fromX, fromY));
+                throw new InvalidOperationException(
+                    string.Format("to BlockType is not NONE.(toX:{0} toY:{1} type:{2} fromX:{3} fromY:{4} type:{5}", toX, toY, to.type.ToString(), fromX, fromY, from.type.ToString()));
             }
 
 
             if (from.type == BlockType.NONE)
             {
-                throw new InvalidOperationException(string.Format("from BlockType is NONE.(toX:{0} toY:{1} fromX:{2} fromY:{3}", toX, toY, fromX, fromY));
+                throw new InvalidOperationException(string.Format("from BlockType is not NONE.(toX:{0} toY:{1} type:{2} fromX:{3} fromY:{4} type:{5}", toX, toY, to.type.ToString(), fromX, fromY, from.type.ToString()));
             }
 
             to.type = from.type;

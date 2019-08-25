@@ -13,9 +13,12 @@ namespace Game.Behavior
     {
         public delegate BlockObject OnInstantiateBlock(int id);
         public delegate void OnDeleteBlock(BlockObject blockObject);
+        public delegate void OnCombo(int count);
 
         public event OnInstantiateBlock onInstantiateBlock;
         public event OnDeleteBlock onDeleteBlock;
+        public event OnCombo onCombo;
+
 
         Block[] blocks;
         Dictionary<int, BlockObject> blockObjects = new Dictionary<int, BlockObject>();
@@ -28,6 +31,9 @@ namespace Game.Behavior
 
         // 何フレーム間隔でブロックを落とすか
         public int gravityAcceleration = 5;
+
+
+        int comboCount = 0;
 
         int idCount = 0;
 
@@ -79,37 +85,45 @@ namespace Game.Behavior
                     var block = GetBlock(x, y);
                     var underBlock = GetBlock(x, y + 1);
 
-                    // 消えているブロックは落下しない && 下のブロックが空白なら落下する
-                    if (!block.isDeleting && underBlock != null && underBlock.type == BlockType.NONE)
+                    // 消えているブロックは落下しない 
+                    if (!block.isDeleting)
                     {
-                        for (var dy = y; dy >= 0; --dy)
+                        // 下のブロックが空白なら落下する
+                        if (underBlock != null && underBlock.type == BlockType.NONE)
                         {
-                            var dBlock = GetBlock(x, dy);
-                            var underBlock2 = GetBlock(x, dy + 1);
-
-                            if (dBlock.type == BlockType.NONE)
+                            for (var dy = y; dy >= 0; --dy)
                             {
-                                continue;
-                            }
+                                var dBlock = GetBlock(x, dy);
+                                var underBlock2 = GetBlock(x, dy + 1);
 
-                            if (dBlock.isDeleting || underBlock2.isDeleting || underBlock2.type != BlockType.NONE)
-                            {
-                                continue;
-                            }
+                                if (dBlock.type == BlockType.NONE)
+                                {
+                                    continue;
+                                }
 
-                            if (dBlock.fallWaitFrame > 0)
-                            {
-                                dBlock.fallWaitFrame--;
-                                continue;
-                            }
-                            else
-                            {
-                                MoveBlock(x, dy + 1, x, dy);
-                            }
+                                if (dBlock.isDeleting || underBlock2.isDeleting || underBlock2.type != BlockType.NONE)
+                                {
+                                    continue;
+                                }
 
-                            dBlock.fallWaitFrame = gravityAcceleration;
+                                if (dBlock.fallWaitFrame > 0)
+                                {
+                                    dBlock.fallWaitFrame--;
+                                    continue;
+                                }
+                                else
+                                {
+                                    MoveBlock(x, dy + 1, x, dy);
+                                }
+
+                                dBlock.fallWaitFrame = gravityAcceleration;
+                            }
+                            break;
                         }
-                        break;
+                        else
+                        {
+                            block.isWillCombo = false;
+                        }
                     }
                 }
             }
@@ -118,12 +132,24 @@ namespace Game.Behavior
             for (var i = 0; i < blocks.Length; ++i)
             {
                 var block = blocks[i];
+                var x = i % Width;
+                var y = i / Height;
                 if (block.isDeleting)
                 {
                     block.deleteCount++;
 
                     if (block.deleteCount > block.deleteCountLimit)
                     {
+                        // 上に乗っているブロックに連鎖フラグを付ける
+                        for (var dy = y - 1; dy > 0; --dy)
+                        {
+                            var targetBlock = GetBlock(x, dy);
+                            if (targetBlock == null || targetBlock.type == BlockType.NONE)
+                            {
+                                break;
+                            }
+                            targetBlock.isWillCombo = true;
+                        }
                         DeleteBlock(i % Width, i / Height);
                     }
                 }
@@ -193,25 +219,23 @@ namespace Game.Behavior
             var b = GetBlock(x + 1, y);
             if (!a.isDeleting && !b.isDeleting)
             {
-                if (blockObjects.ContainsKey(a.Id))
+                if (blockObjects.ContainsKey(a.id))
                 {
-
-                    blockObjects[a.Id].MoveTo(PositionToVector3(x + 1, y), 5);
+                    blockObjects[a.id].MoveTo(PositionToVector3(x + 1, y), 5);
                 }
 
-                if (blockObjects.ContainsKey(b.Id))
+                if (blockObjects.ContainsKey(b.id))
                 {
-
-                    blockObjects[b.Id].MoveTo(PositionToVector3(x, y), 5);
+                    blockObjects[b.id].MoveTo(PositionToVector3(x, y), 5);
                 }
 
                 var t = a.type;
-                var id = a.Id;
+                var id = a.id;
                 a.type = b.type;
-                a.Id = b.Id;
+                a.id = b.id;
 
                 b.type = t;
-                b.Id = id;
+                b.id = id;
             }
         }
 
@@ -224,14 +248,14 @@ namespace Game.Behavior
         {
             var block = GetBlock(x, y);
             block.type = blockType;
-            block.Id = idCount;
+            block.id = idCount;
             ++idCount;
 
-            var blockObject = onInstantiateBlock.Invoke(block.Id);
+            var blockObject = onInstantiateBlock.Invoke(block.id);
             blockObject.type = blockType;
             blockObject.transform.position = PositionToVector3(x, y);
 
-            blockObjects.Add(block.Id, blockObject);
+            blockObjects.Add(block.id, blockObject);
         }
 
         /// <summary>
@@ -258,15 +282,9 @@ namespace Game.Behavior
                 throw new InvalidOperationException(string.Format("from BlockType is not NONE.(toX:{0} toY:{1} type:{2} fromX:{3} fromY:{4} type:{5}", toX, toY, to.type.ToString(), fromX, fromY, from.type.ToString()));
             }
 
-            to.type = from.type;
-            to.Id = from.Id;
+            from.MoveTo(to);
 
-            from.type = BlockType.NONE;
-            from.Id = -1;
-
-
-
-            blockObjects[to.Id].MoveTo(PositionToVector3(toX, toY), gravityAcceleration);
+            blockObjects[to.id].MoveTo(PositionToVector3(toX, toY), gravityAcceleration);
         }
 
         /// <summary>
@@ -277,26 +295,23 @@ namespace Game.Behavior
         void DeleteBlock(int x, int y)
         {
             var block = GetBlock(x, y);
-            if (block.Id == -1)
+            if (block.id == -1)
             {
                 return;
             }
-            onDeleteBlock.Invoke(blockObjects[block.Id]);
-            blockObjects.Remove(block.Id);
+            onDeleteBlock.Invoke(blockObjects[block.id]);
+            blockObjects.Remove(block.id);
 
-            Debug.Log("Delete block:" + block.Id);
+            Debug.Log("Delete block:" + block.id);
 
-            block.type = BlockType.NONE;
-            block.Id = -1;
-            block.deleteCount = 0;
-            block.isDeleting = false;
+            block.Init();
         }
 
         void SetDeleteFlag(int x, int y)
         {
             var block = GetBlock(x, y);
             block.isDeleting = true;
-            blockObjects[block.Id].isDeleting = true;
+            blockObjects[block.id].isDeleting = true;
         }
 
         void LookupDeleteBlockGroup(int baseX, int baseY)
@@ -304,6 +319,8 @@ namespace Game.Behavior
             var block = GetBlock(baseX, baseY);
             var horizontalDeletingBlocks = new List<(int x, int y)>(5);
             horizontalDeletingBlocks.Add((baseX, baseY));
+
+            bool willCombo = false;
 
             // 横方向
             for (var dx = baseX + 1; dx < Width; ++dx)
@@ -321,6 +338,11 @@ namespace Game.Behavior
                 if (checkBlock.deleteCount > 0 || checkBlock.type == BlockType.NONE || checkBlock.type != block.type)
                 {
                     break;
+                }
+
+                if (checkBlock.isWillCombo)
+                {
+                    willCombo = true;
                 }
 
                 horizontalDeletingBlocks.Add((dx, baseY));
@@ -347,16 +369,22 @@ namespace Game.Behavior
                     break;
                 }
 
+                if (checkBlock.isWillCombo)
+                {
+                    willCombo = true;
+                }
+
                 verticalDeletingBlocks.Add((baseX, dy));
             }
 
-
+            var isDeleted = false;
             if (horizontalDeletingBlocks.Count >= 3)
             {
                 horizontalDeletingBlocks.ForEach(pos =>
                 {
                     SetDeleteFlag(pos.x, pos.y);
                 });
+                isDeleted = true;
             }
 
             if (verticalDeletingBlocks.Count >= 3)
@@ -365,7 +393,16 @@ namespace Game.Behavior
                 {
                     SetDeleteFlag(pos.x, pos.y);
                 });
+                isDeleted = true;
             }
+
+
+            if (isDeleted && willCombo)
+            {
+                onCombo?.Invoke(comboCount);
+                ++comboCount;
+            }
+
         }
 
 

@@ -5,6 +5,7 @@ using UnityEngine;
 
 using Game.Core;
 using Game.Behavior;
+using UnityEngine.UI;
 
 public class Field : MonoBehaviour
 {
@@ -19,8 +20,10 @@ public class Field : MonoBehaviour
     public BlockObject blockPrefab;
 
     GameObject cursor;
+    GameObject comboText;
 
     FieldBehavior fieldBehavior;
+
 
     int[] inputFrames = new int[6];
 
@@ -43,6 +46,7 @@ public class Field : MonoBehaviour
         cursorY = Height  - 2;
 
         cursor = GameObject.FindGameObjectWithTag("Cursor");
+        comboText = GameObject.FindGameObjectWithTag("ComboText");
 
         fieldBehavior.onInstantiateBlock += (id) =>
         {
@@ -54,6 +58,12 @@ public class Field : MonoBehaviour
         fieldBehavior.onDeleteBlock += blockObject =>
         {
             Destroy(blockObject.gameObject);
+        };
+
+        fieldBehavior.onCombo += count =>
+        {
+            var text = comboText.GetComponent<Text>();
+            text.text = string.Format("{0} Combo!", count);
         };
 
         fieldBehavior.Init();

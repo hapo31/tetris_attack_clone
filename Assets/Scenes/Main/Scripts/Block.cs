@@ -16,7 +16,7 @@ namespace Game.Core
     }
     class Block
     {
-        public int Id;
+        public int id;
         public BlockType type = BlockType.NONE;
         // 消去カウント
         public int deleteCount = 0;
@@ -25,11 +25,34 @@ namespace Game.Core
         // 1マス落下するときにそのマスで留まるフレーム数
         public int fallWaitFrame = 0;
 
+        public bool isWillCombo = false;
+
         public bool isDeleting = false;
 
         public Block()
         {
-            Id = -1;
+            id = -1;
+        }
+
+        public void MoveTo(Block target)
+        {
+            target.id = id;
+            target.type = type;
+            target.isWillCombo = isWillCombo;
+
+            id = -1;
+            type = BlockType.NONE;
+            isWillCombo = false;
+        }
+
+        public void Init()
+        {
+            type = BlockType.NONE;
+            id = -1;
+            deleteCount = 0;
+            fallWaitFrame = 0;
+            isWillCombo = false;
+            isDeleting = false;
         }
     }
 }

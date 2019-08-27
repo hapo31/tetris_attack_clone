@@ -25,7 +25,7 @@ namespace Game.Core
         // 1マス落下するときにそのマスで留まるフレーム数
         public int fallWaitFrame = 0;
 
-        public bool isWillCombo = false;
+        public int comboCount = 0;
 
         public bool isDeleting = false;
 
@@ -34,15 +34,15 @@ namespace Game.Core
             id = -1;
         }
 
-        public void MoveTo(Block target)
+        public void Move(Block target)
         {
             target.id = id;
             target.type = type;
-            target.isWillCombo = isWillCombo;
+            target.comboCount = comboCount;
 
             id = -1;
             type = BlockType.NONE;
-            isWillCombo = false;
+            comboCount = 0;
         }
 
         public void Init()
@@ -51,7 +51,7 @@ namespace Game.Core
             id = -1;
             deleteCount = 0;
             fallWaitFrame = 0;
-            isWillCombo = false;
+            comboCount = 0;
             isDeleting = false;
         }
     }

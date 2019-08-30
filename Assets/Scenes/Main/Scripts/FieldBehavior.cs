@@ -14,10 +14,12 @@ namespace Game.Behavior
         public delegate BlockObject OnInstantiateBlock(int id);
         public delegate void OnDeleteBlock(BlockObject blockObject);
         public delegate void OnCombo(int count);
+        public delegate void OnComboReset();
 
         public event OnInstantiateBlock onInstantiateBlock;
         public event OnDeleteBlock onDeleteBlock;
         public event OnCombo onCombo;
+        public event OnComboReset onComboReset;
 
 
         Block[] blocks;
@@ -33,7 +35,7 @@ namespace Game.Behavior
         public int gravityAcceleration = 5;
 
 
-        int globalComboCount = 0;
+        int globalComboCount = 1;
 
         int idCount = 0;
 
@@ -69,7 +71,6 @@ namespace Game.Behavior
                 {
                     var blockType = (BlockType)(rand.Next(4) + 1);
                     CreateBlock(x, y, blockType);
-
                 }
             }
         }
@@ -78,12 +79,7 @@ namespace Game.Behavior
         public void Update()
         {
             // ブロックを落下させる
-            bool isDroped = DropBlock();
-            if (!isDroped)
-            {
-                globalComboCount = 0;
-            }
-
+            DropBlock();
 
             // ブロックの消去
             for (var i = 0; i < blocks.Length; ++i)
@@ -105,7 +101,7 @@ namespace Game.Behavior
                             {
                                 break;
                             }
-                            targetBlock.comboCount = 1;
+                            targetBlock.isWillCombo = true;
                         }
                         DeleteBlock(x, y);
                     }
@@ -137,7 +133,7 @@ namespace Game.Behavior
 
             BlockComboCleanup();
 
-            DebugProc();
+            // DebugProc();
         }
 
         public void DebugProc()
@@ -179,7 +175,7 @@ namespace Game.Behavior
 
         public void ChangeBlock(int x, int y)
         {
-            var a = GetBlock(x ,y);
+            var a = GetBlock(x, y);
             var b = GetBlock(x + 1, y);
             if (!a.isDeleting && !b.isDeleting)
             {
@@ -193,13 +189,16 @@ namespace Game.Behavior
                     blockObjects[b.id].MoveTo(PositionToVector3(x, y), 5);
                 }
 
-                var t = a.type;
+                var type = a.type;
                 var id = a.id;
+                var isWillCombo = a.isWillCombo;
                 a.type = b.type;
                 a.id = b.id;
+                a.isWillCombo = b.isWillCombo;
 
-                b.type = t;
+                b.type = type;
                 b.id = id;
+                b.isWillCombo = isWillCombo;
             }
         }
 
@@ -251,17 +250,16 @@ namespace Game.Behavior
             blockObjects[to.id].MoveTo(PositionToVector3(toX, toY), gravityAcceleration);
         }
 
-        bool DropBlock()
+        void DropBlock()
         {
-            bool isDroped = false;
             for (var x = 0; x < Width; ++x)
             {
-                for (var y = Height - 1; y >= 0; --y)
+                for (var y = Height - 2; y >= 0; --y)
                 {
                     // ブロックが浮いているなら落下処理をする
                     if (isFloatingBlock(x, y))
                     {
-                        for (var dy = y; dy >= 0; --dy)
+                        for (var dy = y + 1; dy >= 0; --dy)
                         {
                             var block = GetBlock(x, dy);
                             var underBlock = GetBlock(x, dy + 1);
@@ -284,7 +282,6 @@ namespace Game.Behavior
                             else
                             {
                                 MoveBlock(x, dy + 1, x, dy);
-                                isDroped = true;
                             }
 
                             block.fallWaitFrame = gravityAcceleration;
@@ -294,28 +291,37 @@ namespace Game.Behavior
 
                 }
             }
-
-            return isDroped;
         }
 
         void BlockComboCleanup()
         {
+            var allLanded = true;
             for (var x = 0; x < Width; ++x)
             {
                 for (var y = Height - 1; y >= 0; --y)
                 {
                     var block = GetBlock(x, y);
-                    var underBlock = GetBlock(x, y + 1);
 
-                    // もともと空白のブロックと消えているブロックは落下しない 
-                    if (block.type != BlockType.NONE && !block.isDeleting)
-                    {                       
-                        // 下のブロックが空白でないなら
-                        if (underBlock == null || underBlock.type != BlockType.NONE)
-                        {
-                        }
+                    if (block.type == BlockType.NONE)
+                    {
+                        continue;
+                    }
+
+                    if (!isFloatingChunk(x, y) && !block.isDeleting)
+                    {
+                        block.isWillCombo = false;
+                    }
+                    else
+                    {
+                        allLanded = false;
                     }
                 }
+            }
+
+            if (allLanded)
+            {
+                globalComboCount = 1;
+                onComboReset?.Invoke();
             }
         }
 
@@ -354,7 +360,32 @@ namespace Game.Behavior
         /// <returns>ブロックが浮いているかどうか</returns>
         bool isFloatingBlock(int x, int y)
         {
-            for(var dy = y + 1; dy < Height; ++dy)
+            var block = GetBlock(x, y);
+            var underBlock = GetBlock(x, y + 1);
+
+            // 空白ブロックは浮いてないということにする
+            if (block.type != BlockType.NONE &&
+                // 下のブロックがない == 一番下のブロックなら浮いてない
+                underBlock != null &&
+                underBlock.type == BlockType.NONE)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 指定した位置のブロックの下方向に空白ブロックがないかをチェックする
+        /// </summary>
+        /// <param name="x">調べるブロックのX座標</param>
+        /// <param name="y">調べるブロックのY座標</param>
+        /// <returns></returns>
+        bool isFloatingChunk(int x, int y)
+        { 
+            for (var dy = y + 1; dy < Height; ++dy)
             {
                 var block = GetBlock(x, y);
                 if (block != null && block.type == BlockType.NONE)
@@ -377,7 +408,7 @@ namespace Game.Behavior
             var horizontalDeletingBlocks = new List<(int x, int y)>(5);
             horizontalDeletingBlocks.Add((baseX, baseY));
 
-            int nextComboCount = globalComboCount + 1;
+            var isIncreasesCombo = false;
 
             // 横方向
             for (var dx = baseX + 1; dx < Width; ++dx)
@@ -396,6 +427,7 @@ namespace Game.Behavior
                 {
                     break;
                 }
+
                 horizontalDeletingBlocks.Add((dx, baseY));
             }
 
@@ -427,7 +459,11 @@ namespace Game.Behavior
                 horizontalDeletingBlocks.ForEach(pos =>
                 {
                     var deleteTargetBlock = GetBlock(pos.x, pos.y);
-                    deleteTargetBlock.comboCount = nextComboCount;
+                    // 消去するブロックに連鎖フラグが付いているものが含まれていれば連鎖数増加フラグを立てる
+                    if (deleteTargetBlock.isWillCombo)
+                    {
+                        isIncreasesCombo = true;
+                    }
                     SetDeleteFlag(pos.x, pos.y);
                 });
             }
@@ -437,9 +473,19 @@ namespace Game.Behavior
                 verticalDeletingBlocks.ForEach(pos =>
                 {
                     var deleteTargetBlock = GetBlock(pos.x, pos.y);
-                    deleteTargetBlock.comboCount = nextComboCount;
+                    // 消去するブロックに連鎖フラグが付いているものが含まれていれば連鎖数増加フラグを立てる
+                    if (deleteTargetBlock.isWillCombo)
+                    {
+                        isIncreasesCombo = true;
+                    }
                     SetDeleteFlag(pos.x, pos.y);
                 });
+            }
+
+            if (isIncreasesCombo)
+            {
+                ++globalComboCount;
+                onCombo?.Invoke(globalComboCount);
             }
 
             return horizontalDeletingBlocks.Count >= 3 || verticalDeletingBlocks.Count >= 3;

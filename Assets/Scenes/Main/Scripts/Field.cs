@@ -62,8 +62,18 @@ public class Field : MonoBehaviour
 
         fieldBehavior.onCombo += count =>
         {
+            Debug.Log("連鎖数:" + count);
+            if (count >= 2)
+            {
+                var text = comboText.GetComponent<Text>();
+                text.gameObject.SetActive(true);
+                text.text = string.Format("{0} Combo!", count);
+            }
+        };
+
+        fieldBehavior.onComboReset += () => {
             var text = comboText.GetComponent<Text>();
-            text.text = string.Format("{0} Combo!", count);
+            text.gameObject.SetActive(false);
         };
 
         fieldBehavior.Init();

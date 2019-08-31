@@ -63,7 +63,8 @@ public class Field : MonoBehaviour
         fieldBehavior.onCombo += count =>
         {
             Debug.Log("連鎖数:" + count);
-            if (count >= 2)
+            // 連鎖数の表示
+            if (count >= 1)
             {
                 var text = comboText.GetComponent<Text>();
                 text.gameObject.SetActive(true);

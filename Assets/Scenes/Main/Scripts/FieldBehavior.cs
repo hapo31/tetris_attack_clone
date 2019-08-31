@@ -35,7 +35,7 @@ namespace Game.Behavior
         public int gravityAcceleration = 5;
 
 
-        int globalComboCount = 1;
+        int globalComboCount = 0;
 
         int idCount = 0;
 
@@ -108,32 +108,54 @@ namespace Game.Behavior
                 }
             }
 
+
+            var deleteCount = 0;
             // ブロックの消去チェック
             for (var y = 0; y < Height; ++y)
             {
                 for (var x = 0; x < Width; ++x)
                 {
                     var block = GetBlock(x, y);
-                    var underBlock = GetBlock(x, y + 1);
-                    if (underBlock != null && underBlock.type == BlockType.NONE)
+                    // もう消しているブロックは処理しない
+                    if (block.isDeleting)
                     {
                         continue;
                     }
 
-                    if (block.deleteCount == 0 && block.type != BlockType.NONE)
+                    // 消去対象のブロックを列挙する
+                    (var h, var v) = LookupDeleteBlockGroup(x, y);
+
+                    if (h.Count >= 3)
                     {
-                        if (LookupDeleteBlockGroup(x, y))
+                        h.ForEach(pos =>
                         {
-                            globalComboCount++;
-                            onCombo?.Invoke(globalComboCount);
-                        }
+                            var deleteTargetBlock = GetBlock(pos.x, pos.y);
+                            SetDeleteFlag(pos.x, pos.y);
+                        });
                     }
+
+                    if (v.Count >= 3)
+                    {
+                        v.ForEach(pos =>
+                        {
+                            var deleteTargetBlock = GetBlock(pos.x, pos.y);
+                            SetDeleteFlag(pos.x, pos.y);
+                        });
+                    }
+
+                    deleteCount += h.Count + v.Count;
                 }
+            }
+
+            if (deleteCount > 3)
+            {
+                globalComboCount++;
+                onCombo?.Invoke(globalComboCount);
             }
 
             BlockComboCleanup();
 
-            // DebugProc();
+            DebugProc();
         }
 
         public void DebugProc()
@@ -145,26 +167,35 @@ namespace Game.Behavior
                 {
                     var b = GetBlock(x, y);
 
-                    switch (b.type)
+                    if (b.isWillCombo)
                     {
-                        case BlockType.NONE:
-                            s += "-";
-                            break;
-                        case BlockType.RED:
-                            s += "a";
-                            break;
-                        case BlockType.GREEN:
-                            s += "b";
-                            break;
-                        case BlockType.BLUE:
-                            s += "c";
-                            break;
-                        case BlockType.YELLOW:
-                            s += "d";
-                            break;
-                        default:
-                            break;
+                        s += "t";
                     }
+                    else
+                    {
+                        s += "f";
+                    }
+
+                    //switch (b.type)
+                    //{
+                    //    case BlockType.NONE:
+                    //        s += "-";
+                    //        break;
+                    //    case BlockType.RED:
+                    //        s += "a";
+                    //        break;
+                    //    case BlockType.GREEN:
+                    //        s += "b";
+                    //        break;
+                    //    case BlockType.BLUE:
+                    //        s += "c";
+                    //        break;
+                    //    case BlockType.YELLOW:
+                    //        s += "d";
+                    //        break;
+                    //    default:
+                    //        break;
+                    //}
                 }
                 s += "\n";
             }
@@ -295,7 +326,6 @@ namespace Game.Behavior
 
         void BlockComboCleanup()
         {
-            var allLanded = true;
             for (var x = 0; x < Width; ++x)
             {
                 for (var y = Height - 1; y >= 0; --y)
@@ -307,20 +337,17 @@ namespace Game.Behavior
                         continue;
                     }
 
-                    if (!isFloatingChunk(x, y) && !block.isDeleting)
+                    if (!isFloatingChunk(x, y))
                     {
                         block.isWillCombo = false;
-                    }
-                    else
-                    {
-                        allLanded = false;
                     }
                 }
             }
 
-            if (allLanded)
+            // すべてのブロックの連鎖フラグが false だったら連鎖数をリセット
+            if (blocks.All(block => !block.isWillCombo))
             {
-                globalComboCount = 1;
+                globalComboCount = 0;
                 onComboReset?.Invoke();
             }
         }
@@ -402,13 +429,12 @@ namespace Game.Behavior
             return false;
         }
 
-        bool LookupDeleteBlockGroup(int baseX, int baseY)
+        (List<(int x, int y)> h, List<(int x, int y)> v) LookupDeleteBlockGroup(int baseX, int baseY)
         {
             var block = GetBlock(baseX, baseY);
             var horizontalDeletingBlocks = new List<(int x, int y)>(5);
-            horizontalDeletingBlocks.Add((baseX, baseY));
 
-            var isIncreasesCombo = false;
+            horizontalDeletingBlocks.Add((baseX, baseY));
 
             // 横方向
             for (var dx = baseX + 1; dx < Width; ++dx)
@@ -429,6 +455,11 @@ namespace Game.Behavior
                 }
 
                 horizontalDeletingBlocks.Add((dx, baseY));
+            }
+
+            if (horizontalDeletingBlocks.Count < 3)
+            {
+                horizontalDeletingBlocks.Clear();
             }
 
             var verticalDeletingBlocks = new List<(int x, int y)>(5);
@@ -454,41 +485,13 @@ namespace Game.Behavior
                 verticalDeletingBlocks.Add((baseX, dy));
             }
 
-            if (horizontalDeletingBlocks.Count >= 3)
+            if (verticalDeletingBlocks.Count < 3)
             {
-                horizontalDeletingBlocks.ForEach(pos =>
-                {
-                    var deleteTargetBlock = GetBlock(pos.x, pos.y);
-                    // 消去するブロックに連鎖フラグが付いているものが含まれていれば連鎖数増加フラグを立てる
-                    if (deleteTargetBlock.isWillCombo)
-                    {
-                        isIncreasesCombo = true;
-                    }
-                    SetDeleteFlag(pos.x, pos.y);
-                });
+                verticalDeletingBlocks.Clear();
             }
 
-            if (verticalDeletingBlocks.Count >= 3)
-            {
-                verticalDeletingBlocks.ForEach(pos =>
-                {
-                    var deleteTargetBlock = GetBlock(pos.x, pos.y);
-                    // 消去するブロックに連鎖フラグが付いているものが含まれていれば連鎖数増加フラグを立てる
-                    if (deleteTargetBlock.isWillCombo)
-                    {
-                        isIncreasesCombo = true;
-                    }
-                    SetDeleteFlag(pos.x, pos.y);
-                });
-            }
-
-            if (isIncreasesCombo)
-            {
-                ++globalComboCount;
-                onCombo?.Invoke(globalComboCount);
-            }
-
-            return horizontalDeletingBlocks.Count >= 3 || verticalDeletingBlocks.Count >= 3;
+            // 水平方向と垂直方向の消去結果を返す
+            return (horizontalDeletingBlocks, verticalDeletingBlocks);
         }
 
 

@@ -15,6 +15,8 @@ public class BlockObject : MonoBehaviour
 
     public bool isDeleting = false;
 
+    public bool isWillCombo = false;
+
     private new Renderer renderer;
 
     private Queue<Vector3> moveQueue = new Queue<Vector3>();
@@ -82,6 +84,11 @@ public class BlockObject : MonoBehaviour
         if (isDeleting)
         {
             renderer.material.color = new Color(0, 0, 0.5f, 1);
+        }
+
+        if (isWillCombo)
+        {
+            renderer.material.color = new Color(0.5f, 0, 0, 1);
         }
     }
 }

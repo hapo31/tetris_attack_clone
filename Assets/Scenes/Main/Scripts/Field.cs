@@ -60,21 +60,22 @@ public class Field : MonoBehaviour
             Destroy(blockObject.gameObject);
         };
 
-        fieldBehavior.onCombo += count =>
+        fieldBehavior.onCombo += (comboCount, chainCount) =>
         {
-            Debug.Log("連鎖数:" + count);
+            Debug.Log("連鎖数:" + comboCount);
             // 連鎖数の表示
-            if (count >= 1)
+            if (comboCount >= 1)
             {
                 var text = comboText.GetComponent<Text>();
                 text.gameObject.SetActive(true);
-                text.text = string.Format("{0} Combo!", count);
+                text.text = string.Format("{0} Combo!", comboCount);
             }
         };
 
         fieldBehavior.onComboReset += () => {
             var text = comboText.GetComponent<Text>();
             text.gameObject.SetActive(false);
+            Debug.Log("連鎖リセット");
         };
 
         fieldBehavior.Init();

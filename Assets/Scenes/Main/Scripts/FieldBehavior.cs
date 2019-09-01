@@ -13,9 +13,14 @@ namespace Game.Behavior
     {
         public delegate BlockObject OnInstantiateBlock(int id);
         public delegate void OnDeleteBlock(BlockObject blockObject);
+        public delegate void OnCombo(int comboCount, int chainCount);
+        public delegate void OnComboReset();
 
         public event OnInstantiateBlock onInstantiateBlock;
         public event OnDeleteBlock onDeleteBlock;
+        public event OnCombo onCombo;
+        public event OnComboReset onComboReset;
+
 
         Block[] blocks;
         Dictionary<int, BlockObject> blockObjects = new Dictionary<int, BlockObject>();
@@ -28,6 +33,9 @@ namespace Game.Behavior
 
         // 何フレーム間隔でブロックを落とすか
         public int gravityAcceleration = 5;
+
+
+        int globalComboCount = 0;
 
         int idCount = 0;
 
@@ -63,7 +71,6 @@ namespace Game.Behavior
                 {
                     var blockType = (BlockType)(rand.Next(4) + 1);
                     CreateBlock(x, y, blockType);
-
                 }
             }
         }
@@ -72,82 +79,120 @@ namespace Game.Behavior
         public void Update()
         {
             // ブロックを落下させる
-            for (var x = 0; x < Width; ++x)
-            {
-                for (var y = Height - 1; y >= 0; --y)
-                {
-                    var block = GetBlock(x, y);
-                    var underBlock = GetBlock(x, y + 1);
-
-                    // 消えているブロックは落下しない && 下のブロックが空白なら落下する
-                    if (!block.isDeleting && underBlock != null && underBlock.type == BlockType.NONE)
-                    {
-                        for (var dy = y; dy >= 0; --dy)
-                        {
-                            var dBlock = GetBlock(x, dy);
-                            var underBlock2 = GetBlock(x, dy + 1);
-
-                            if (dBlock.type == BlockType.NONE)
-                            {
-                                continue;
-                            }
-
-                            if (dBlock.isDeleting || underBlock2.isDeleting || underBlock2.type != BlockType.NONE)
-                            {
-                                continue;
-                            }
-
-                            if (dBlock.fallWaitFrame > 0)
-                            {
-                                dBlock.fallWaitFrame--;
-                                continue;
-                            }
-                            else
-                            {
-                                MoveBlock(x, dy + 1, x, dy);
-                            }
-
-                            dBlock.fallWaitFrame = gravityAcceleration;
-                        }
-                        break;
-                    }
-                }
-            }
+            DropBlock();
 
             // ブロックの消去
             for (var i = 0; i < blocks.Length; ++i)
             {
                 var block = blocks[i];
+                var x = i % Width;
+                var y = i / Height;
                 if (block.isDeleting)
                 {
                     block.deleteCount++;
 
                     if (block.deleteCount > block.deleteCountLimit)
                     {
-                        DeleteBlock(i % Width, i / Height);
+                        // 上に乗っているブロックに連鎖フラグを付ける
+                        for (var dy = y - 1; dy > 0; --dy)
+                        {
+                            var targetBlock = GetBlock(x, dy);
+                            if (targetBlock == null || targetBlock.type == BlockType.NONE)
+                            {
+                                break;
+                            }
+
+                            if (targetBlock.isDeleting)
+                            {
+                                continue;
+                            }
+
+                            targetBlock.isWillCombo = true;
+                        }
+                        DeleteBlock(x, y);
                     }
                 }
             }
 
+
+            var deleteCount = 0;
+            var isIncreasesCombo = false;
             // ブロックの消去チェック
             for (var y = 0; y < Height; ++y)
             {
                 for (var x = 0; x < Width; ++x)
                 {
                     var block = GetBlock(x, y);
-                    var underBlock = GetBlock(x, y + 1);
-                    if (underBlock != null && underBlock.type == BlockType.NONE)
+                    // もう消しているブロックは処理しない
+                    if (block.isDeleting)
                     {
                         continue;
                     }
 
-                    if (block.deleteCount == 0 && block.type != BlockType.NONE)
+                    // そのブロックが浮いていたら処理しない
+                    if (isFloatingChunk(x, y))
                     {
-                        LookupDeleteBlockGroup(x, y);
+                        continue;
                     }
+
+                    // 消去対象のブロックを列挙する
+                    (var h, var v) = LookupDeleteBlockGroup(x, y);
+
+                    if (h.Count >= 3)
+                    {
+                        h.ForEach(pos =>
+                        {
+                            var deleteTargetBlock = GetBlock(pos.x, pos.y);
+                            if (deleteTargetBlock.isWillCombo)
+                            {
+                                isIncreasesCombo = true;
+                            }
+                            SetDeleteFlag(pos.x, pos.y);
+                        });
+                    }
+
+                    if (v.Count >= 3)
+                    {
+                        v.ForEach(pos =>
+                        {
+                            var deleteTargetBlock = GetBlock(pos.x, pos.y);
+                            if (deleteTargetBlock.isWillCombo)
+                            {
+                                isIncreasesCombo = true;
+                            }
+                            SetDeleteFlag(pos.x, pos.y);
+                        });
+                    }
+
+                    deleteCount += h.Count + v.Count - (v.Count >= 3 && h.Count >= 3 ? 1 : 0);
                 }
             }
-            DebugProc();
+
+            if (deleteCount >= 3)
+            {
+                Debug.Log("isIncreasesCombo:" + isIncreasesCombo);
+                // 連鎖数をカウントアップするかどうか
+                if (isIncreasesCombo)
+                {
+                    // 連鎖数を上げる
+                    globalComboCount++;
+                    onCombo?.Invoke(globalComboCount, deleteCount);
+                }
+                else
+                {
+                    // 1連鎖目のとき
+                    if (globalComboCount <= 0)
+                    {
+                        globalComboCount = 1;
+                    }
+                    onCombo?.Invoke(1, deleteCount);
+                }
+
+
+            }
+
+            BlockComboCleanup();
+            // DebugProc();
         }
 
         public void DebugProc()
@@ -189,29 +234,30 @@ namespace Game.Behavior
 
         public void ChangeBlock(int x, int y)
         {
-            var a = GetBlock(x ,y);
+            var a = GetBlock(x, y);
             var b = GetBlock(x + 1, y);
             if (!a.isDeleting && !b.isDeleting)
             {
-                if (blockObjects.ContainsKey(a.Id))
+                if (blockObjects.ContainsKey(a.id))
                 {
-
-                    blockObjects[a.Id].MoveTo(PositionToVector3(x + 1, y), 5);
+                    blockObjects[a.id].MoveTo(PositionToVector3(x + 1, y), 5);
                 }
 
-                if (blockObjects.ContainsKey(b.Id))
+                if (blockObjects.ContainsKey(b.id))
                 {
-
-                    blockObjects[b.Id].MoveTo(PositionToVector3(x, y), 5);
+                    blockObjects[b.id].MoveTo(PositionToVector3(x, y), 5);
                 }
 
-                var t = a.type;
-                var id = a.Id;
+                var type = a.type;
+                var id = a.id;
+                var isWillCombo = a.isWillCombo;
                 a.type = b.type;
-                a.Id = b.Id;
+                a.id = b.id;
+                a.isWillCombo = b.isWillCombo;
 
-                b.type = t;
-                b.Id = id;
+                b.type = type;
+                b.id = id;
+                b.isWillCombo = isWillCombo;
             }
         }
 
@@ -224,14 +270,14 @@ namespace Game.Behavior
         {
             var block = GetBlock(x, y);
             block.type = blockType;
-            block.Id = idCount;
+            block.id = idCount;
             ++idCount;
 
-            var blockObject = onInstantiateBlock.Invoke(block.Id);
+            var blockObject = onInstantiateBlock.Invoke(block.id);
             blockObject.type = blockType;
             blockObject.transform.position = PositionToVector3(x, y);
 
-            blockObjects.Add(block.Id, blockObject);
+            blockObjects.Add(block.id, blockObject);
         }
 
         /// <summary>
@@ -258,15 +304,84 @@ namespace Game.Behavior
                 throw new InvalidOperationException(string.Format("from BlockType is not NONE.(toX:{0} toY:{1} type:{2} fromX:{3} fromY:{4} type:{5}", toX, toY, to.type.ToString(), fromX, fromY, from.type.ToString()));
             }
 
-            to.type = from.type;
-            to.Id = from.Id;
+            from.Move(to);
 
-            from.type = BlockType.NONE;
-            from.Id = -1;
+            blockObjects[to.id].MoveTo(PositionToVector3(toX, toY), gravityAcceleration);
+        }
 
+        void DropBlock()
+        {
+            for (var x = 0; x < Width; ++x)
+            {
+                for (var y = Height - 2; y >= 0; --y)
+                {
+                    // ブロックが浮いているなら落下処理をする
+                    if (isFloatingBlock(x, y))
+                    {
+                        for (var dy = y + 1; dy >= 0; --dy)
+                        {
+                            var block = GetBlock(x, dy);
+                            var underBlock = GetBlock(x, dy + 1);
 
+                            if (block.type == BlockType.NONE)
+                            {
+                                continue;
+                            }
 
-            blockObjects[to.Id].MoveTo(PositionToVector3(toX, toY), gravityAcceleration);
+                            if (block.isDeleting || underBlock.isDeleting || underBlock.type != BlockType.NONE)
+                            {
+                                continue;
+                            }
+
+                            if (block.fallWaitFrame > 0)
+                            {
+                                block.fallWaitFrame--;
+                                continue;
+                            }
+                            else
+                            {
+                                MoveBlock(x, dy + 1, x, dy);
+                            }
+
+                            block.fallWaitFrame = gravityAcceleration;
+                        }
+                        break;
+                    }
+
+                }
+            }
+        }
+
+        void BlockComboCleanup()
+        {
+            var allLanded = true;
+            for (var y = Height - 1; y >= 0; --y)
+            {
+                for (var x = 0; x < Width; ++x)
+                {
+                    var block = GetBlock(x, y);
+
+                    if (block.type == BlockType.NONE)
+                    {
+                        continue;
+                    }
+
+                    if (!block.isDeleting && !isFloatingChunk(x, y))
+                    {
+                        block.isWillCombo = false;
+                    }
+                    else
+                    {
+                        allLanded = false;
+                    }
+                }
+            }
+            // すべてのブロックが着地していたら連鎖数をリセット
+            if (globalComboCount > 0 && allLanded)
+            {
+                globalComboCount = 0;
+                onComboReset?.Invoke();
+            }
         }
 
         /// <summary>
@@ -277,46 +392,89 @@ namespace Game.Behavior
         void DeleteBlock(int x, int y)
         {
             var block = GetBlock(x, y);
-            if (block.Id == -1)
+            if (block.id == -1)
             {
                 return;
             }
-            onDeleteBlock.Invoke(blockObjects[block.Id]);
-            blockObjects.Remove(block.Id);
-
-            Debug.Log("Delete block:" + block.Id);
-
-            block.type = BlockType.NONE;
-            block.Id = -1;
-            block.deleteCount = 0;
-            block.isDeleting = false;
+            onDeleteBlock.Invoke(blockObjects[block.id]);
+            blockObjects.Remove(block.id);
+            block.Init();
         }
 
         void SetDeleteFlag(int x, int y)
         {
             var block = GetBlock(x, y);
             block.isDeleting = true;
-            blockObjects[block.Id].isDeleting = true;
+            blockObjects[block.id].isDeleting = true;
         }
 
-        void LookupDeleteBlockGroup(int baseX, int baseY)
+        /// <summary>
+        /// そのブロックのひとつ下が空白かどうかを調べる
+        /// </summary>
+        /// <param name="x">調べるブロックのX座標</param>
+        /// <param name="y">調べるブロックのY座標</param>
+        /// <returns>ブロックが浮いているかどうか</returns>
+        bool isFloatingBlock(int x, int y)
+        {
+            var block = GetBlock(x, y);
+            var underBlock = GetBlock(x, y + 1);
+
+            // 空白ブロックは浮いてないということにする
+            if (block.type != BlockType.NONE &&
+                // 下のブロックがない == 一番下のブロックなら浮いてない
+                underBlock != null &&
+                underBlock.type == BlockType.NONE)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 指定した位置のブロックの下方向に空白ブロックがないかをチェックする
+        /// </summary>
+        /// <param name="x">調べるブロックのX座標</param>
+        /// <param name="y">調べるブロックのY座標</param>
+        /// <returns></returns>
+        bool isFloatingChunk(int x, int y)
+        {
+            for (var dy = y + 1; dy < Height; ++dy)
+            {
+                var block = GetBlock(x, dy);
+                if (block.type == BlockType.NONE)
+                {
+                    return true;
+                }
+                // 消去中のブロックは床の役割をする
+                if (block.isDeleting)
+                {
+                    return false;
+                }
+            }
+
+            return false;
+        }
+
+        (List<(int x, int y)> h, List<(int x, int y)> v) LookupDeleteBlockGroup(int baseX, int baseY)
         {
             var block = GetBlock(baseX, baseY);
             var horizontalDeletingBlocks = new List<(int x, int y)>(5);
+
             horizontalDeletingBlocks.Add((baseX, baseY));
 
             // 横方向
             for (var dx = baseX + 1; dx < Width; ++dx)
             {
-                var checkBlock = GetBlock(dx, baseY);
-                var underBlock = GetBlock(dx, baseY + 1);
-
                 // 1マス下が空白なら判定を中断
-                if (underBlock != null && underBlock.type == BlockType.NONE)
+                if (isFloatingBlock(dx, baseY))
                 {
                     break;
                 }
 
+                var checkBlock = GetBlock(dx, baseY);
                 // 消去中か空白ブロックか違うブロックだったら判定終わり
                 if (checkBlock.deleteCount > 0 || checkBlock.type == BlockType.NONE || checkBlock.type != block.type)
                 {
@@ -326,46 +484,39 @@ namespace Game.Behavior
                 horizontalDeletingBlocks.Add((dx, baseY));
             }
 
+            if (horizontalDeletingBlocks.Count < 3)
+            {
+                horizontalDeletingBlocks.Clear();
+            }
+
             var verticalDeletingBlocks = new List<(int x, int y)>(5);
             verticalDeletingBlocks.Add((baseX, baseY));
 
             // 縦方向
             for (var dy = baseY + 1; dy < Height; ++dy)
             {
-                var checkBlock = GetBlock(baseX, dy);
-                var underBlock = GetBlock(baseX, dy + 1);
-
                 // 1マス下が空白なら判定を中断
-                if (underBlock != null && underBlock.type == BlockType.NONE)
+                if (isFloatingBlock(baseX, dy))
                 {
                     break;
                 }
 
+                var checkBlock = GetBlock(baseX, dy);
                 // 空白ブロックか違うブロックだったら判定終わり
                 if (checkBlock.deleteCount > 0 || checkBlock.type == BlockType.NONE || checkBlock.type != block.type)
                 {
                     break;
                 }
-
                 verticalDeletingBlocks.Add((baseX, dy));
             }
 
-
-            if (horizontalDeletingBlocks.Count >= 3)
+            if (verticalDeletingBlocks.Count < 3)
             {
-                horizontalDeletingBlocks.ForEach(pos =>
-                {
-                    SetDeleteFlag(pos.x, pos.y);
-                });
+                verticalDeletingBlocks.Clear();
             }
 
-            if (verticalDeletingBlocks.Count >= 3)
-            {
-                verticalDeletingBlocks.ForEach(pos =>
-                {
-                    SetDeleteFlag(pos.x, pos.y);
-                });
-            }
+            // 水平方向と垂直方向の消去結果を返す
+            return (horizontalDeletingBlocks, verticalDeletingBlocks);
         }
 
 

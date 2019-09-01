@@ -5,6 +5,7 @@ using UnityEngine;
 
 using Game.Core;
 using Game.Behavior;
+using UnityEngine.UI;
 
 public class Field : MonoBehaviour
 {
@@ -19,8 +20,10 @@ public class Field : MonoBehaviour
     public BlockObject blockPrefab;
 
     GameObject cursor;
+    GameObject comboText;
 
     FieldBehavior fieldBehavior;
+
 
     int[] inputFrames = new int[6];
 
@@ -43,6 +46,7 @@ public class Field : MonoBehaviour
         cursorY = Height  - 2;
 
         cursor = GameObject.FindGameObjectWithTag("Cursor");
+        comboText = GameObject.FindGameObjectWithTag("ComboText");
 
         fieldBehavior.onInstantiateBlock += (id) =>
         {
@@ -54,6 +58,24 @@ public class Field : MonoBehaviour
         fieldBehavior.onDeleteBlock += blockObject =>
         {
             Destroy(blockObject.gameObject);
+        };
+
+        fieldBehavior.onCombo += (comboCount, chainCount) =>
+        {
+            Debug.Log("連鎖数:" + comboCount);
+            // 連鎖数の表示
+            if (comboCount >= 1)
+            {
+                var text = comboText.GetComponent<Text>();
+                text.gameObject.SetActive(true);
+                text.text = string.Format("{0} Combo!", comboCount);
+            }
+        };
+
+        fieldBehavior.onComboReset += () => {
+            var text = comboText.GetComponent<Text>();
+            text.gameObject.SetActive(false);
+            Debug.Log("連鎖リセット");
         };
 
         fieldBehavior.Init();

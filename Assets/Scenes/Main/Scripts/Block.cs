@@ -27,7 +27,12 @@ namespace Game.Core
 
         public bool isWillCombo = false;
 
-        public bool isDeleting = false;
+        // ブロックを消したときの連鎖数
+        public int comboCount = 0;
+
+        public bool IsDeleting { get => comboCount >= 1; }
+
+        public bool IsInCombo { get => comboCount >= 2; }
 
         public Block()
         {
@@ -38,8 +43,8 @@ namespace Game.Core
         {
             target.id = id;
             target.type = type;
+            target.comboCount = comboCount;
             target.isWillCombo = isWillCombo;
-
             Init();
         }
 
@@ -50,7 +55,7 @@ namespace Game.Core
             deleteCount = 0;
             fallWaitFrame = 0;
             isWillCombo = false;
-            isDeleting = false;
+            comboCount = 0;
         }
     }
 }

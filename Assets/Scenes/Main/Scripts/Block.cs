@@ -25,7 +25,9 @@ namespace Game.Core
         // 1マス落下するときにそのマスで留まるフレーム数
         public int fallWaitFrame = 0;
 
-        public bool isWillCombo = false;
+        public int nextComboCount = 0;
+
+        public bool IsWillCombo { get => nextComboCount >= 2; }
 
         // ブロックを消したときの連鎖数
         public int comboCount = 0;
@@ -44,7 +46,7 @@ namespace Game.Core
             target.id = id;
             target.type = type;
             target.comboCount = comboCount;
-            target.isWillCombo = isWillCombo;
+            target.nextComboCount = nextComboCount;
             Init();
         }
 
@@ -54,7 +56,7 @@ namespace Game.Core
             id = -1;
             deleteCount = 0;
             fallWaitFrame = 0;
-            isWillCombo = false;
+            nextComboCount = 0;
             comboCount = 0;
         }
     }

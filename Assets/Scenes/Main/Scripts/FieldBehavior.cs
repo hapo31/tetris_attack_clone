@@ -106,8 +106,8 @@ namespace Game.Behavior
                             {
                                 continue;
                             }
-
-                            targetBlock.isWillCombo = true;
+                            // 消去によって落下するブロックに次の連鎖数を与える
+                            targetBlock.nextComboCount = block.comboCount + 1;
                         }
                         DeleteBlock(x, y);
                     }
@@ -143,7 +143,7 @@ namespace Game.Behavior
                         h.ForEach(pos =>
                         {
                             var deleteTargetBlock = GetBlock(pos.x, pos.y);
-                            if (deleteTargetBlock.isWillCombo)
+                            if (deleteTargetBlock.IsWillCombo)
                             {
                                 isIncreasesCombo = true;
                                 SetDeleteFlag(pos.x, pos.y, globalComboCount + 1);
@@ -160,7 +160,7 @@ namespace Game.Behavior
                         v.ForEach(pos =>
                         {
                             var deleteTargetBlock = GetBlock(pos.x, pos.y);
-                            if (deleteTargetBlock.isWillCombo)
+                            if (deleteTargetBlock.IsWillCombo)
                             {
                                 isIncreasesCombo = true;
                                 SetDeleteFlag(pos.x, pos.y, globalComboCount + 1);
@@ -266,9 +266,9 @@ namespace Game.Behavior
                 b.type = type;
                 b.id = id;
 
-                // isWillComboは入れ替えたら無効化する
-                a.isWillCombo = false;
-                b.isWillCombo = false;
+                // nextComboCount は入れ替えたら無効化する
+                a.nextComboCount = 0;
+                b.nextComboCount = 0;
             }
         }
 
@@ -365,7 +365,8 @@ namespace Game.Behavior
 
         void BlockComboCleanup()
         {
-            var resetComboCount = true;
+            var blockAllLanded = true;
+            var nextComboMax = 0;
             for (var y = Height - 1; y >= 0; --y)
             {
                 for (var x = 0; x < Width; ++x)
@@ -377,26 +378,28 @@ namespace Game.Behavior
                         continue;
                     }
 
-                    // TODO: そのブロックが消えると次に何連鎖になるかという情報が必要なので動かない
                     var isFloating = isFloatingBlock(x, y);
-
-                    if (block.isWillCombo)
-                    {
-                        resetComboCount = false;
-                    }
-
 
                     if (!isFloating)
                     {
-                        block.isWillCombo = false;
+                        block.nextComboCount = 0;
+                    }
+
+                    if (nextComboMax <= block.nextComboCount)
+                    {
+                        nextComboMax = block.nextComboCount;
+                    }
+
+                    if (block.comboCount == globalComboCount)
+                    {
+                        blockAllLanded = false;
                     }
                 }
             }
 
 
 
-            // すべてのブロックが着地していたら連鎖数をリセット
-            if (globalComboCount > 0 && resetComboCount)
+            if (blockAllLanded && globalComboCount >= 2 && nextComboMax < globalComboCount)
             {
                 globalComboCount = 0;
                 onComboReset?.Invoke();
@@ -424,6 +427,7 @@ namespace Game.Behavior
         {
             var block = GetBlock(x, y);
             block.comboCount = comboCount;
+            block.nextComboCount = 0;
             blockObjects[block.id].isDeleting = true;
         }
 

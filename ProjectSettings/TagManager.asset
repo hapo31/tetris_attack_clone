@@ -44,3 +44,12 @@ TagManager:
   - name: Default
     uniqueID: 0
     locked: 0
+  - name: Block
+    uniqueID: 400434895
+    locked: 0
+  - name: PlayerCursor
+    uniqueID: 1850948927
+    locked: 0
+  - name: UI
+    uniqueID: 1034071515
+    locked: 0

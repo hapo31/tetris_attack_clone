@@ -45,7 +45,6 @@ namespace Game.Behavior
             for (var i = 0; i < width * height; ++i)
             {
                 blocks[i] = new Block();
-                blocks[i].deleteCountLimit = blockDeleteCountLimit;
             }
             Width = width;
             Height = height;
@@ -91,7 +90,7 @@ namespace Game.Behavior
                 {
                     block.deleteCount++;
 
-                    if (block.deleteCount > block.deleteCountLimit)
+                    if (block.deleteCount > blockDeleteCountLimit)
                     {
                         // 上に乗っているブロックに連鎖フラグを付ける
                         for (var dy = y - 1; dy > 0; --dy)

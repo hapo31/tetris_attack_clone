@@ -377,7 +377,7 @@ namespace Game.Behavior
                         continue;
                     }
 
-                    var isFloating = isFloatingBlock(x, y);
+                    var isFloating = isFloatingChunk(x, y);
 
                     if (!isFloating)
                     {
